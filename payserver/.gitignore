@@ -1,0 +1,62 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+
+# Auth/session local files
+*.session
+*.session.*
+session.db
+
+# Sensitive business data exports
+exports/
+*.csv
+*.xlsx
+*.xls
+
+# Pay-slip images / documents
+Screenshot *.png
+*.pdf
+
+# Database data and dumps
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sql.gz
+*.dump
+*.bak
+*.backup
+pgdata/
+.postgres/
+postgres-data/
+db-data/
+
+# Docker local overrides
+docker-compose.override.yml

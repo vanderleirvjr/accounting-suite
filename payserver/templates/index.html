@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pay Advice & Budget Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #4f8ef7;
+      --accent2: #7c5cbf;
+      --green: #34c77b;
+      --red: #e05c5c;
+      --yellow: #f0b429;
+      --text: #e8eaf6;
+      --text2: #8b92b8;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* Layout */
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { width: 230px; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+    .sidebar-logo { padding: 0 20px 24px; font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; }
+    .sidebar-logo span { font-size: 0.75rem; color: var(--text2); display: block; font-weight: 400; margin-top: 2px; }
+    .nav-item { padding: 11px 20px; cursor: pointer; color: var(--text2); font-size: 0.9rem; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; transition: all 0.2s; }
+    .nav-item:hover { color: var(--text); background: var(--surface2); }
+    .nav-item.active { color: var(--accent); background: rgba(79,142,247,0.1); border-left-color: var(--accent); }
+    .sidebar a.nav-item { text-decoration: none; }
+    .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+    .main { flex: 1; overflow-y: auto; }
+    .page { display: none; padding: 32px; max-width: 1600px; }
+    .page.active { display: block; }
+    .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .page-sub { color: var(--text2); font-size: 0.9rem; margin-bottom: 28px; }
+
+    /* Cards */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+    .card-title { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+
+    /* Stat grid */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .stat-label { font-size: 0.78rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .stat-value { font-size: 1.6rem; font-weight: 700; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+    .stat-value.blue { color: var(--accent); }
+    .stat-value.yellow { color: var(--yellow); }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { background: var(--surface2); color: var(--text2); font-weight: 600; padding: 12px 14px; text-align: left; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; }
+    td { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    tr:last-child td { border-bottom: none; }
+    .td-green { color: var(--green); font-weight: 600; }
+    .td-red { color: var(--red); }
+    .td-blue { color: var(--accent); }
+
+    /* Form */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 0.8rem; color: var(--text2); font-weight: 500; }
+    .form-group input, .form-group textarea, .form-group select {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); padding: 10px 12px; font-size: 0.9rem; transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
+    .form-section-title { grid-column: 1/-1; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    /* Buttons */
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #3d78e0; }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-success:hover { background: #28a868; }
+    .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); font-size: 0.8rem; padding: 6px 12px; }
+    .btn-danger:hover { background: var(--red); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+
+    /* Chart */
+    .chart-container { position: relative; height: 300px; }
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
+
+    /* Badge */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .badge-blue { background: rgba(79,142,247,0.2); color: var(--accent); }
+    .badge-green { background: rgba(52,199,123,0.2); color: var(--green); }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
+    .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+    .modal-close { float: right; background: none; border: none; color: var(--text2); font-size: 1.4rem; cursor: pointer; }
+
+    /* Notification */
+    .notif { position: fixed; top: 20px; right: 20px; padding: 14px 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 500; z-index: 999; display: none; box-shadow: var(--shadow); animation: slideIn 0.3s ease; }
+    .notif.success { background: var(--green); color: #fff; }
+    .notif.error { background: var(--red); color: #fff; }
+    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* Year filter */
+    .year-filter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .year-btn { padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+    .year-btn.active, .year-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* Budget progress */
+    .budget-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .budget-label { flex: 0 0 160px; font-size: 0.85rem; }
+    .budget-bar-wrap { flex: 1; background: var(--surface2); border-radius: 6px; height: 10px; overflow: hidden; }
+    .budget-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+    .budget-bar.ok { background: var(--green); }
+    .budget-bar.warn { background: var(--yellow); }
+    .budget-bar.over { background: var(--red); }
+    .budget-pct { flex: 0 0 60px; text-align: right; font-size: 0.8rem; color: var(--text2); }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* Summary table */
+    .summary-section { margin-bottom: 24px; }
+    .summary-section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 10px; }
+    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row.total { font-weight: 700; font-size: 1rem; }
+    .summary-row.net { font-weight: 800; font-size: 1.1rem; color: var(--green); border-top: 2px solid var(--border); margin-top: 4px; padding-top: 12px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">💵 PayTracker<span>Pay · Budget · Taxes</span></div>
+    <a class="nav-item active" href="/dashboard" data-page="dashboard"><span class="nav-icon">📊</span> Dashboard</a>
+    <a class="nav-item" href="/people" data-page="people"><span class="nav-icon">👤</span> People</a>
+    <a class="nav-item" href="/pay-advices" data-page="pay-advices"><span class="nav-icon">🧾</span> Pay Advices</a>
+    <a class="nav-item" href="/add-pay" data-page="add-pay"><span class="nav-icon">➕</span> Add Pay Stub</a>
+    <a class="nav-item" href="/tax-summary" data-page="tax-summary"><span class="nav-icon">🏛️</span> Tax Summary</a>
+    <a class="nav-item" href="/budget" data-page="budget"><span class="nav-icon">🎯</span> Budget Goals</a>
+    <a class="nav-item" href="/export" data-page="export"><span class="nav-icon">📥</span> Export Data</a>
+    <a class="nav-item" href="/logout"><span class="nav-icon">🚪</span> Logout</a>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- People -->
+    <div class="page" id="page-people">
+      <div class="page-title">People</div>
+      <div class="page-sub">Manage the people whose pay stubs you track</div>
+
+      <div class="card">
+        <div class="card-title">➕ Add Person</div>
+        <form id="person-form">
+          <input type="hidden" id="p-edit-id" value="" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Full Name *</label>
+              <input type="text" id="p-name" placeholder="e.g. Vanderlei" required />
+            </div>
+            <div class="form-group">
+              <label>Notes (optional)</label>
+              <input type="text" id="p-notes" placeholder="e.g. Primary earner" />
+            </div>
+          </div>
+          <div class="btn-group">
+            <button type="submit" class="btn btn-primary" id="p-submit-btn">➕ Add Person</button>
+            <button type="button" class="btn btn-secondary" onclick="resetPersonForm()">🔄 Reset</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">👥 People</div>
+        <div id="people-list"><div class="empty-state"><div class="icon">👤</div><div>No people yet — add one above.</div></div></div>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub">Overview of your pay, taxes, and deductions</div>
+
+      <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:4px;">
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Person</div>
+          <div class="year-filter" id="dash-person-filter" style="margin-bottom:0"></div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Year</div>
+          <div class="year-filter" id="dash-year-filter" style="margin-bottom:0"></div>
+        </div>
+      </div>
+      <div style="height:16px"></div>
+
+      <div class="stat-grid" id="dash-stats">
+        <div class="stat-card"><div class="stat-label">Base Pay (YTD)</div><div class="stat-value blue" id="stat-gross">—</div></div>
+        <div class="stat-card"><div class="stat-label">Net Pay (YTD)</div><div class="stat-value green" id="stat-net">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Taxes (YTD)</div><div class="stat-value red" id="stat-taxes">—</div></div>
+        <div class="stat-card"><div class="stat-label">Retirement (YTD)</div><div class="stat-value yellow" id="stat-retirement">—</div></div>
+        <div class="stat-card"><div class="stat-label">Retirement Contributions (YTD)</div><div class="stat-value" style="color:var(--accent2)" id="stat-er">—</div></div>
+        <div class="stat-card"><div class="stat-label">Pay Stubs This Year</div><div class="stat-value" id="stat-count">—</div></div>
+        <div class="stat-card"><div class="stat-label">Avg Net Per Stub</div><div class="stat-value green" id="stat-avg">—</div></div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="card">
+          <div class="card-title">📈 Base vs Net Pay Per Month</div>
+          <div class="chart-container"><canvas id="chart-pay-trend"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🥧 Pay Breakdown</div>
+          <div class="chart-container"><canvas id="chart-breakdown"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏛️ Tax Breakdown</div>
+        <div class="chart-container" style="height:220px"><canvas id="chart-taxes"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🧾 Detailed Totals</div>
+        <div id="dash-detail-content" class="summary-grid"></div>
+      </div>
+    </div>
+
+    <!-- Pay Advices List -->
+    <div class="page" id="page-pay-advices">
+      <div class="page-title">Pay Advices</div>
+      <div class="page-sub">All recorded pay stubs</div>
+
+      <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:4px;">
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Person</div>
+          <div class="year-filter" id="list-person-filter" style="margin-bottom:0"></div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Year</div>
+          <div class="year-filter" id="list-year-filter" style="margin-bottom:0"></div>
+        </div>
+      </div>
+      <div style="height:16px"></div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table id="pay-table">
+            <thead>
+              <tr>
+                <th>Person</th>
+                <th>Pay Date</th>
+                <th>Base Pay</th>
+                <th>Pre-Tax Ded.</th>
+                <th>Taxes</th>
+                <th>Post-Tax Ded.</th>
+                <th>Net Pay</th>
+                <th>Retirement Contributions</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pay-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Pay Stub -->
+    <div class="page" id="page-add-pay">
+      <div class="page-title" id="form-page-title">Add Pay Stub</div>
+      <div class="page-sub">Enter your pay advice details below</div>
+
+      <div class="card">
+        <form id="pay-form">
+          <input type="hidden" id="edit-id" value="" />
+          <div class="form-grid">
+
+            <div class="form-section-title">👤 Person</div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Person *</label>
+              <select id="f-person_id" required style="max-width:320px">
+                <option value="">— Select person —</option>
+              </select>
+              <span style="font-size:0.78rem; color:var(--text2); margin-top:4px;">
+                Need to add someone? Go to the <a href="/people" style="color:var(--accent)">People</a> page first.
+              </span>
+            </div>
+
+            <div class="form-section-title">📅 Pay Period</div>
+            <div class="form-group">
+              <label>Pay Date *</label>
+              <input type="date" id="f-pay_date" required />
+            </div>
+            <div class="form-group">
+              <label>Period Start</label>
+              <input type="date" id="f-pay_period_start" />
+            </div>
+            <div class="form-group">
+              <label>Period End</label>
+              <input type="date" id="f-pay_period_end" />
+            </div>
+
+            <div class="form-section-title">💰 Income</div>
+            <div class="form-group">
+              <label>Base Pay *</label>
+              <input type="number" step="0.01" id="f-gross" placeholder="0.00" required />
+            </div>
+
+            <div class="form-section-title">🏥 Pre-Tax Deductions</div>
+            <div class="form-group"><label>Dental (Pre-Tax)</label><input type="number" step="0.01" id="f-dental_pre" placeholder="0.00" /></div>
+            <div class="form-group"><label>Medical (Pre-Tax)</label><input type="number" step="0.01" id="f-medical_pre" placeholder="0.00" /></div>
+            <div class="form-group"><label>Retirement Plan</label><input type="number" step="0.01" id="f-retirement_plan" placeholder="0.00" /></div>
+            <div class="form-group"><label>Parking Permit</label><input type="number" step="0.01" id="f-park_permit" placeholder="0.00" /></div>
+
+            <div class="form-section-title">🏛️ Taxes</div>
+            <div class="form-group"><label>Federal Taxes</label><input type="number" step="0.01" id="f-federal_taxes" placeholder="0.00" /></div>
+            <div class="form-group"><label>Medicare</label><input type="number" step="0.01" id="f-medicare" placeholder="0.00" /></div>
+            <div class="form-group"><label>Social Security</label><input type="number" step="0.01" id="f-social_security" placeholder="0.00" /></div>
+            <div class="form-group"><label>State Tax</label><input type="number" step="0.01" id="f-state_tax" placeholder="0.00" /></div>
+            <div class="form-group"><label>State Misc (FAMLI/PFML)</label><input type="number" step="0.01" id="f-state_misc2" placeholder="0.00" /></div>
+
+            <div class="form-section-title">📋 Post-Tax Deductions</div>
+            <div class="form-group"><label>LTD (Post-Tax)</label><input type="number" step="0.01" id="f-ltd_post" placeholder="0.00" /></div>
+            <div class="form-group"><label>Vol AD&amp;D (Post-Tax)</label><input type="number" step="0.01" id="f-vol_add_post" placeholder="0.00" /></div>
+            <div class="form-group"><label>STD (Post-Tax)</label><input type="number" step="0.01" id="f-std_post" placeholder="0.00" /></div>
+
+            <div class="form-section-title">🏢 Employer Allowances</div>
+            <div class="form-group"><label>LTD Allowance (Employer)</label><input type="number" step="0.01" id="f-er_ltd" placeholder="0.00" /></div>
+            <div class="form-group"><label>STD Allowance (Employer)</label><input type="number" step="0.01" id="f-er_std" placeholder="0.00" /></div>
+            <div class="form-group"><label>Basic Life Imputed Income</label><input type="number" step="0.01" id="f-basic_life_imputed_income" placeholder="0.00" /></div>
+            <div class="form-group"><label>Imputed Apparel</label><input type="number" step="0.01" id="f-imputed_famli_ee" placeholder="0.00" /></div>
+
+            <div class="form-section-title">🎓 Miscellaneous</div>
+            <div class="form-group"><label>Tuition (Deduction)</label><input type="number" step="0.01" id="f-tuition" placeholder="0.00" /></div>
+
+            <div class="form-section-title">🏢 Employer Paid Benefits</div>
+            <div class="form-group"><label>401(a) – Employer</label><input type="number" step="0.01" id="f-er_retirement_401a" placeholder="0.00" /></div>
+            <div class="form-group"><label>Basic Life / AD&amp;D</label><input type="number" step="0.01" id="f-er_basic_life_add" placeholder="0.00" /></div>
+            <div class="form-group"><label>Dental (Employer)</label><input type="number" step="0.01" id="f-er_dental" placeholder="0.00" /></div>
+            <div class="form-group"><label>EAP</label><input type="number" step="0.01" id="f-er_eap" placeholder="0.00" /></div>
+            <div class="form-group"><label>HSA (Employer)</label><input type="number" step="0.01" id="f-er_hsa" placeholder="0.00" /></div>
+            <div class="form-group"><label>Medical (Employer)</label><input type="number" step="0.01" id="f-er_medical" placeholder="0.00" /></div>
+            <div class="form-group"><label>Other Employer Benefit</label><input type="number" step="0.01" id="f-er_other" placeholder="0.00" /></div>
+
+            <div class="form-section-title">📝 Notes</div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Notes (optional)</label>
+              <textarea id="f-notes" rows="2" placeholder="Any additional notes..."></textarea>
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div class="card" style="margin-top:20px; background: var(--surface2);">
+            <div class="card-title">💡 Live Calculation Preview</div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px;">
+              <div><div class="stat-label">Calculated Gross Pay</div><div class="stat-value blue" style="font-size:1.1rem" id="preview-gross">$0.00</div></div>
+              <div><div class="stat-label">Retirement Contributions</div><div class="stat-value" style="font-size:1.1rem; color:var(--accent2)" id="preview-retirement-contrib">$0.00</div></div>
+              <div><div class="stat-label">Pre-Tax Deductions</div><div class="stat-value" style="font-size:1.1rem" id="preview-pre">$0.00</div></div>
+              <div><div class="stat-label">Total Taxes</div><div class="stat-value red" style="font-size:1.1rem" id="preview-taxes">$0.00</div></div>
+              <div><div class="stat-label">Post-Tax Deductions</div><div class="stat-value" style="font-size:1.1rem" id="preview-post">$0.00</div></div>
+              <div><div class="stat-label">Estimated Net Pay</div><div class="stat-value green" style="font-size:1.3rem" id="preview-net">$0.00</div></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px; background: var(--surface2);">
+            <div class="card-title">📅 Live Calculation Preview (YTD)</div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px;">
+              <div><div class="stat-label">YTD Gross Pay</div><div class="stat-value blue" style="font-size:1.1rem" id="preview-ytd-gross">$0.00</div></div>
+              <div><div class="stat-label">YTD Retirement Contributions</div><div class="stat-value" style="font-size:1.1rem; color:var(--accent2)" id="preview-ytd-retirement-contrib">$0.00</div></div>
+              <div><div class="stat-label">YTD Pre-Tax</div><div class="stat-value" style="font-size:1.1rem" id="preview-ytd-pre">$0.00</div></div>
+              <div><div class="stat-label">YTD Taxes</div><div class="stat-value red" style="font-size:1.1rem" id="preview-ytd-taxes">$0.00</div></div>
+              <div><div class="stat-label">YTD Post-Tax</div><div class="stat-value" style="font-size:1.1rem" id="preview-ytd-post">$0.00</div></div>
+              <div><div class="stat-label">YTD Net</div><div class="stat-value green" style="font-size:1.3rem" id="preview-ytd-net">$0.00</div></div>
+              <div><div class="stat-label">YTD Stub Count</div><div class="stat-value" style="font-size:1.1rem" id="preview-ytd-count">—</div></div>
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button type="submit" class="btn btn-success" id="submit-btn">💾 Save Pay Stub</button>
+            <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tax Summary -->
+    <div class="page" id="page-tax-summary">
+      <div class="page-title">Tax Year Summary</div>
+      <div class="page-sub">Aggregated totals for W-2 cross-checking and tax filing</div>
+
+      <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:4px;">
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Person</div>
+          <div class="year-filter" id="tax-person-filter" style="margin-bottom:0"></div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Year</div>
+          <div class="year-filter" id="tax-year-filter" style="margin-bottom:0"></div>
+        </div>
+      </div>
+      <div style="height:16px"></div>
+
+      <div id="tax-summary-content">
+        <div class="empty-state"><div class="icon">🏛️</div><div>Select a year to view tax summary</div></div>
+      </div>
+    </div>
+
+    <!-- Budget -->
+    <div class="page" id="page-budget">
+      <div class="page-title">Budget Goals</div>
+      <div class="page-sub">Set monthly spending goals and track against your net pay</div>
+
+      <div class="card">
+        <div class="card-title">➕ Add / Update Budget Goal</div>
+        <form id="budget-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Category Name</label>
+              <input type="text" id="b-category" placeholder="e.g. Rent, Groceries..." required />
+            </div>
+            <div class="form-group">
+              <label>Monthly Budget Amount ($)</label>
+              <input type="number" step="0.01" id="b-amount" placeholder="0.00" required />
+            </div>
+            <div class="form-group">
+              <label>Notes</label>
+              <input type="text" id="b-notes" placeholder="Optional..." />
+            </div>
+          </div>
+          <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Save Goal</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card" id="budget-goals-card">
+        <div class="card-title">🎯 Your Budget Goals</div>
+        <div id="budget-goals-list"><div class="empty-state"><div class="icon">🎯</div><div>No budget goals yet</div></div></div>
+      </div>
+
+      <div class="card" id="budget-vs-income-card" style="display:none;">
+        <div class="card-title">📊 Budget vs Last Net Pay</div>
+        <div id="budget-bars"></div>
+        <div id="budget-summary" style="margin-top:16px; color: var(--text2); font-size:0.85rem;"></div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="page" id="page-export">
+      <div class="page-title">Export Data</div>
+      <div class="page-sub">Download your pay data as CSV or Excel</div>
+
+      <div class="card">
+        <div class="card-title">📥 Export Options</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Filter by Person (optional)</label>
+            <select id="export-person">
+              <option value="">All People</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter by Year (optional)</label>
+            <select id="export-year">
+              <option value="">All Years</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="doExport('csv')">📄 Download CSV</button>
+          <button class="btn btn-success" onclick="doExport('excel')">📊 Download Excel</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📖 API Reference</div>
+        <p style="color: var(--text2); font-size:0.85rem; margin-bottom:12px;">This app also exposes a full REST API. Interactive docs available at:</p>
+        <a href="/docs" target="_blank" class="btn btn-secondary">🔗 Open Swagger UI</a>
+        <a href="/redoc" target="_blank" class="btn btn-secondary" style="margin-left:10px;">📚 Open ReDoc</a>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">📝 Edit Pay Stub</div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Notification -->
+<div class="notif" id="notif"></div>
+
+<script>
+const API = '';
+let allYears = [];
+let allPersons = [];
+let selectedDashYear = null;
+let selectedDashPerson = null;
+let selectedListYear = null;
+let selectedListPerson = null;
+let selectedTaxYear = null;
+let selectedTaxPerson = null;
+let chartPayTrend = null;
+let chartBreakdown = null;
+let chartTaxes = null;
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+const fmt = (n) => '$' + parseFloat(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const fmtShort = (n) => '$' + Math.round(parseFloat(n || 0)).toLocaleString();
+const toNum = (v) => parseFloat(v || 0) || 0;
+const grossBenefitAddOns = (o) => toNum(o.tuition) + toNum(o.er_ltd) + toNum(o.er_std) + toNum(o.basic_life_imputed_income) + toNum(o.imputed_famli_ee);
+const baseFromGross = (o) => toNum(o.gross) - grossBenefitAddOns(o);
+const grossFromBase = (basePay, o) => toNum(basePay) + grossBenefitAddOns(o);
+let previewYtdTimer = null;
+
+function showNotif(msg, type = 'success') {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.className = `notif ${type}`;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+async function api(url, opts = {}) {
+  const res = await fetch(API + url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (res.status === 401) {
+    window.location.href = '/login';
+    return;
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail || 'Request failed');
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function showPage(name, opts = { updateUrl: true }) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${name}"]`)?.classList.add('active');
+  if (opts.updateUrl) {
+    const path = PAGE_TO_PATH[name] || '/dashboard';
+    if (window.location.pathname !== path) history.pushState({ page: name }, '', path);
+  }
+  if (name === 'people')      loadPeople();
+  if (name === 'dashboard')   loadDashboard();
+  if (name === 'pay-advices') loadPayList();
+  if (name === 'add-pay')     populatePersonDropdown();
+  if (name === 'budget')      loadBudget();
+  if (name === 'tax-summary') loadTaxSummary();
+}
+
+const PATH_TO_PAGE = {
+  '/': 'dashboard',
+  '/dashboard': 'dashboard',
+  '/people': 'people',
+  '/pay-advices': 'pay-advices',
+  '/add-pay': 'add-pay',
+  '/tax-summary': 'tax-summary',
+  '/budget': 'budget',
+  '/export': 'export',
+};
+const PAGE_TO_PATH = {
+  'dashboard': '/dashboard',
+  'people': '/people',
+  'pay-advices': '/pay-advices',
+  'add-pay': '/add-pay',
+  'tax-summary': '/tax-summary',
+  'budget': '/budget',
+  'export': '/export',
+};
+
+function currentPathPage() {
+  return PATH_TO_PAGE[window.location.pathname] || 'dashboard';
+}
+
+window.addEventListener('popstate', () => {
+  showPage(currentPathPage(), { updateUrl: false });
+});
+
+// ─── Persons & Years bootstrap ────────────────────────────────────────────────
+async function loadPersonsAndYears() {
+  try {
+    [allPersons, allYears] = await Promise.all([
+      api('/api/persons/'),
+      api('/api/pay-advices/years'),
+    ]);
+    if (!allYears.length) allYears = [new Date().getFullYear()];
+    selectedDashYear = allYears[allYears.length - 1];
+    selectedListYear = null;
+    selectedTaxYear  = allYears[allYears.length - 1];
+
+    buildPersonFilter('dash-person-filter', 'dash');
+    buildPersonFilter('list-person-filter', 'list');
+    buildPersonFilter('tax-person-filter',  'tax');
+    buildYearFilter('dash-year-filter', 'dash');
+    buildYearFilter('list-year-filter', 'list');
+    buildYearFilter('tax-year-filter',  'tax');
+
+    // Export dropdowns
+    const epSel = document.getElementById('export-person');
+    epSel.innerHTML = '<option value="">All People</option>';
+    allPersons.forEach(p => epSel.innerHTML += `<option value="${p.id}">${p.name}</option>`);
+
+    const eySel = document.getElementById('export-year');
+    eySel.innerHTML = '<option value="">All Years</option>';
+    allYears.forEach(y => eySel.innerHTML += `<option value="${y}">${y}</option>`);
+
+    populatePersonDropdown();
+  } catch(e) {}
+}
+
+function buildPersonFilter(containerId, prefix) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  let selectedPerson = prefix === 'dash' ? selectedDashPerson
+                     : prefix === 'list' ? selectedListPerson
+                     : selectedTaxPerson;
+  let html = `<button class="year-btn ${selectedPerson === null ? 'active' : ''}" onclick="setPerson('${prefix}', null)">All</button>`;
+  allPersons.forEach(p => {
+    html += `<button class="year-btn ${selectedPerson === p.id ? 'active' : ''}" onclick="setPerson('${prefix}', ${p.id})">${p.name}</button>`;
+  });
+  el.innerHTML = html;
+}
+
+function setPerson(prefix, personId) {
+  if (prefix === 'dash') { selectedDashPerson = personId; buildPersonFilter('dash-person-filter','dash'); loadDashboard(); }
+  if (prefix === 'list') { selectedListPerson = personId; buildPersonFilter('list-person-filter','list'); loadPayList(); }
+  if (prefix === 'tax')  { selectedTaxPerson  = personId; buildPersonFilter('tax-person-filter','tax');  loadTaxSummary(); }
+}
+
+function buildYearFilter(containerId, prefix) {
+  const el = document.getElementById(containerId);
+  let html = '';
+  if (prefix === 'list') {
+    html += `<button class="year-btn ${selectedListYear === null ? 'active' : ''}" onclick="setYear('${prefix}', null)">All</button>`;
+  }
+  allYears.forEach(y => {
+    let active = false;
+    if (prefix === 'dash') active = selectedDashYear === y;
+    else if (prefix === 'list') active = selectedListYear === y;
+    else if (prefix === 'tax') active = selectedTaxYear === y;
+    html += `<button class="year-btn ${active ? 'active' : ''}" onclick="setYear('${prefix}', ${y})">${y}</button>`;
+  });
+  el.innerHTML = html;
+}
+
+function setYear(prefix, year) {
+  if (prefix === 'dash') { selectedDashYear = year; buildYearFilter('dash-year-filter', 'dash'); loadDashboard(); }
+  if (prefix === 'list') { selectedListYear = year; buildYearFilter('list-year-filter', 'list'); loadPayList(); }
+  if (prefix === 'tax') { selectedTaxYear = year; buildYearFilter('tax-year-filter', 'tax'); loadTaxSummary(); }
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const qs = new URLSearchParams();
+    if (selectedDashYear)   qs.set('year', selectedDashYear);
+    if (selectedDashPerson) qs.set('person_id', selectedDashPerson);
+    const items = await api(`/api/pay-advices/?${qs}`);
+    if (!items.length) {
+      ['stat-gross','stat-net','stat-taxes','stat-retirement','stat-er','stat-count','stat-avg'].forEach(id => document.getElementById(id).textContent = '—');
+      document.getElementById('dash-detail-content').innerHTML = `<div class="empty-state" style="grid-column:1/-1; padding:20px;"><div>No pay data for the selected filters.</div></div>`;
+      return;
+    }
+    const sum = (f) => items.reduce((a, i) => a + toNum(i[f]), 0);
+    const gross = sum('gross'), basePay = items.reduce((a, i) => a + baseFromGross(i), 0), net = sum('net_pay'), taxes = sum('total_taxes'),
+          retirement = sum('retirement_plan'),
+          employerPaid = sum('er_retirement_401a') + sum('er_hsa') + sum('er_dental') + sum('er_medical'),
+          retirementContrib = sum('retirement_plan') + sum('er_retirement_401a'),
+          employerAllowances = sum('er_ltd') + sum('er_std') + sum('basic_life_imputed_income') + sum('imputed_famli_ee'),
+          postTaxOnly = sum('ltd_post') + sum('std_post') + sum('vol_add_post');
+    document.getElementById('stat-gross').textContent = fmtShort(basePay);
+    document.getElementById('stat-net').textContent = fmtShort(net);
+    document.getElementById('stat-taxes').textContent = fmtShort(taxes);
+    document.getElementById('stat-retirement').textContent = fmtShort(retirement);
+    document.getElementById('stat-er').textContent = fmtShort(retirementContrib);
+    document.getElementById('stat-count').textContent = items.length;
+    document.getElementById('stat-avg').textContent = fmtShort(net / items.length);
+
+    // Trend chart
+    const monthly = new Map();
+    items.forEach((i) => {
+      const ym = (i.pay_date || '').slice(0, 7); // YYYY-MM
+      if (!monthly.has(ym)) monthly.set(ym, { base: 0, net: 0 });
+      const row = monthly.get(ym);
+      row.base += baseFromGross(i);
+      row.net += toNum(i.net_pay);
+    });
+    const labels = [...monthly.keys()].sort();
+    const grossArr = labels.map((k) => parseFloat(monthly.get(k).base.toFixed(2)));
+    const netArr = labels.map((k) => parseFloat(monthly.get(k).net.toFixed(2)));
+    if (chartPayTrend) chartPayTrend.destroy();
+    chartPayTrend = new Chart(document.getElementById('chart-pay-trend'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Base Pay', data: grossArr, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', tension: 0.4, fill: true },
+          { label: 'Net Pay', data: netArr, borderColor: '#34c77b', backgroundColor: 'rgba(52,199,123,0.1)', tension: 0.4, fill: true }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8b92b8' } } },
+        scales: { x: { ticks: { color: '#8b92b8' }, grid: { color: '#2e3350' } }, y: { ticks: { color: '#8b92b8', callback: v => '$'+v.toLocaleString() }, grid: { color: '#2e3350' } } } }
+    });
+
+    // Breakdown donut
+    const breakdownData = [
+      parseFloat(sum('total_taxes').toFixed(2)),
+      parseFloat(sum('total_pre_tax_deductions').toFixed(2)),
+      parseFloat(postTaxOnly.toFixed(2)),
+      parseFloat(net.toFixed(2)),
+      parseFloat(employerPaid.toFixed(2))
+    ];
+    if (chartBreakdown) chartBreakdown.destroy();
+    chartBreakdown = new Chart(document.getElementById('chart-breakdown'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Taxes', 'Pre-Tax Ded.', 'Post-Tax Ded.', 'Net Pay', 'Employer Paid'],
+        datasets: [{ data: breakdownData, backgroundColor: ['#e05c5c','#f0b429','#7c5cbf','#34c77b','#9b6dff'], borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { color: '#8b92b8', padding: 16 } } } }
+    });
+
+    // Tax breakdown bar
+    const taxLabels = ['Federal', 'Medicare', 'Social Sec.', 'State Tax', 'FAMLI/PFML'];
+    const taxData = ['federal_taxes','medicare','social_security','state_tax','state_misc2'].map(f => parseFloat(sum(f).toFixed(2)));
+    if (chartTaxes) chartTaxes.destroy();
+    chartTaxes = new Chart(document.getElementById('chart-taxes'), {
+      type: 'bar',
+      data: {
+        labels: taxLabels,
+        datasets: [{ label: 'Total YTD', data: taxData, backgroundColor: ['#e05c5c','#f0b429','#4f8ef7','#7c5cbf','#34c77b'], borderRadius: 6 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { color: '#8b92b8' }, grid: { display: false } }, y: { ticks: { color: '#8b92b8', callback: v => '$'+v.toLocaleString() }, grid: { color: '#2e3350' } } } }
+    });
+
+    document.getElementById('dash-detail-content').innerHTML = `
+      <div class="summary-section">
+        <div class="summary-section-title">Income</div>
+        <div class="summary-row"><span>Base Pay</span><span>${fmt(basePay)}</span></div>
+        <div class="summary-row"><span>Gross Add-ons (Tuition + ER LTD + ER STD + Basic Life Imputed + Imputed Apparel)</span><span>${fmt(gross - basePay)}</span></div>
+        <div class="summary-row"><span>Gross Pay (Calculated)</span><span>${fmt(gross)}</span></div>
+        <div class="summary-row"><span>Tuition (Deduction Registry)</span><span>${fmt(sum('tuition'))}</span></div>
+        <div class="summary-row total"><span>Total Income</span><span>${fmt(gross)}</span></div>
+      </div>
+
+      <div class="summary-section">
+        <div class="summary-section-title">Pre-Tax Deductions</div>
+        <div class="summary-row"><span>401k / Retirement</span><span>${fmt(sum('retirement_plan'))}</span></div>
+        <div class="summary-row"><span>Dental</span><span>${fmt(sum('dental_pre'))}</span></div>
+        <div class="summary-row"><span>Medical</span><span>${fmt(sum('medical_pre'))}</span></div>
+        <div class="summary-row"><span>Parking Permit</span><span>${fmt(sum('park_permit'))}</span></div>
+        <div class="summary-row total"><span>Total Pre-Tax</span><span>${fmt(sum('total_pre_tax_deductions'))}</span></div>
+      </div>
+
+      <div class="summary-section">
+        <div class="summary-section-title">Taxes</div>
+        <div class="summary-row"><span>Federal</span><span>${fmt(sum('federal_taxes'))}</span></div>
+        <div class="summary-row"><span>State</span><span>${fmt(sum('state_tax'))}</span></div>
+        <div class="summary-row"><span>Medicare</span><span>${fmt(sum('medicare'))}</span></div>
+        <div class="summary-row"><span>Social Security</span><span>${fmt(sum('social_security'))}</span></div>
+        <div class="summary-row"><span>FAMLI/PFML</span><span>${fmt(sum('state_misc2'))}</span></div>
+        <div class="summary-row total"><span>Total Taxes</span><span>${fmt(sum('total_taxes'))}</span></div>
+      </div>
+
+      <div class="summary-section">
+        <div class="summary-section-title">Post-Tax Deductions</div>
+        <div class="summary-row"><span>LTD</span><span>${fmt(sum('ltd_post'))}</span></div>
+        <div class="summary-row"><span>STD</span><span>${fmt(sum('std_post'))}</span></div>
+        <div class="summary-row"><span>Vol AD&D</span><span>${fmt(sum('vol_add_post'))}</span></div>
+        <div class="summary-row total"><span>Total Post-Tax</span><span>${fmt(postTaxOnly)}</span></div>
+      </div>
+
+      <div class="summary-section">
+        <div class="summary-section-title">Employer Paid Benefits</div>
+        <div class="summary-row"><span>401(a) Employer</span><span>${fmt(sum('er_retirement_401a'))}</span></div>
+        <div class="summary-row"><span>HSA (Employer)</span><span>${fmt(sum('er_hsa'))}</span></div>
+        <div class="summary-row"><span>Dental (Employer)</span><span>${fmt(sum('er_dental'))}</span></div>
+        <div class="summary-row"><span>Medical (Employer)</span><span>${fmt(sum('er_medical'))}</span></div>
+        <div class="summary-row total"><span>Total Employer Paid</span><span>${fmt(employerPaid)}</span></div>
+      </div>
+
+      <div class="summary-section">
+        <div class="summary-section-title">Employer Allowances</div>
+        <div class="summary-row"><span>LTD Allowance</span><span>${fmt(sum('er_ltd'))}</span></div>
+        <div class="summary-row"><span>STD Allowance</span><span>${fmt(sum('er_std'))}</span></div>
+        <div class="summary-row"><span>Basic Life Imputed Income</span><span>${fmt(sum('basic_life_imputed_income'))}</span></div>
+        <div class="summary-row total"><span>Total Allowances</span><span>${fmt(employerAllowances)}</span></div>
+      </div>
+
+      <div class="summary-section">
+        <div class="summary-section-title">Bottom Line</div>
+        <div class="summary-row"><span>Net Pay</span><span>${fmt(net)}</span></div>
+        <div class="summary-row"><span>+ Employer Paid Benefits</span><span>${fmt(employerPaid)}</span></div>
+      </div>
+    `;
+
+  } catch(e) { console.error(e); }
+}
+
+// ─── Pay Advices List ─────────────────────────────────────────────────────────
+async function loadPayList() {
+  const qs = new URLSearchParams();
+  if (selectedListYear)   qs.set('year', selectedListYear);
+  if (selectedListPerson) qs.set('person_id', selectedListPerson);
+  const items = await api(`/api/pay-advices/?${qs}`);
+  const tbody = document.getElementById('pay-tbody');
+  if (!items.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">🧾</div><div>No pay stubs found. <a href="/add-pay" style="color:var(--accent)">Add one!</a></div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = items.map(i => `
+    <tr>
+      <td><span class="badge badge-green">${i.person_name || '—'}</span></td>
+      <td>${i.pay_date} <span class="badge badge-blue">${i.pay_date.substring(0,4)}</span></td>
+      <td class="td-blue">${fmt(baseFromGross(i))}</td>
+      <td class="td-red">−${fmt(i.total_pre_tax_deductions)}</td>
+      <td class="td-red">−${fmt(i.total_taxes)}</td>
+      <td class="td-red">−${fmt(i.total_post_tax_deductions)}</td>
+      <td class="td-green">${fmt(i.net_pay)}</td>
+      <td style="color:var(--accent2)">+${fmt(parseFloat(i.retirement_plan || 0) + parseFloat(i.er_retirement_401a || 0))}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="editPay(${i.id})">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:6px" onclick="deletePay(${i.id})">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ─── Add/Edit Pay ─────────────────────────────────────────────────────────────
+const FIELDS = ['person_id','pay_date','pay_period_start','pay_period_end','gross','dental_pre','medical_pre',
+  'retirement_plan','park_permit','federal_taxes','medicare','social_security','state_tax','state_misc2',
+  'ltd_post','vol_add_post','basic_life_imputed_income','imputed_famli_ee','std_post','tuition',
+  'er_retirement_401a','er_basic_life_add','er_dental','er_eap','er_hsa',
+  'er_ltd','er_medical','er_std','er_other','notes'];
+
+function resetForm() {
+  document.getElementById('edit-id').value = '';
+  document.getElementById('form-page-title').textContent = 'Add Pay Stub';
+  document.getElementById('submit-btn').textContent = '💾 Save Pay Stub';
+  FIELDS.forEach(f => { const el = document.getElementById(`f-${f}`); if(el) el.value = ''; });
+  updatePreview();
+}
+
+function updatePreview() {
+  const v = (id) => parseFloat(document.getElementById(id)?.value || 0) || 0;
+  const basePay = v('f-gross');
+  const gross = grossFromBase(basePay, {
+    tuition: v('f-tuition'),
+    er_ltd: v('f-er_ltd'),
+    er_std: v('f-er_std'),
+    basic_life_imputed_income: v('f-basic_life_imputed_income'),
+    imputed_famli_ee: v('f-imputed_famli_ee')
+  });
+  const pre = v('f-dental_pre') + v('f-medical_pre') + v('f-retirement_plan') + v('f-park_permit');
+  const taxes = v('f-federal_taxes') + v('f-medicare') + v('f-social_security') + v('f-state_tax') + v('f-state_misc2');
+  const post = v('f-ltd_post') + v('f-vol_add_post') + v('f-std_post');
+  const net = gross - pre - taxes - post - v('f-imputed_famli_ee') - v('f-basic_life_imputed_income') - v('f-tuition');
+  const retirementContrib = v('f-retirement_plan') + v('f-er_retirement_401a');
+  document.getElementById('preview-gross').textContent = fmt(gross);
+  document.getElementById('preview-retirement-contrib').textContent = fmt(retirementContrib);
+  document.getElementById('preview-pre').textContent = fmt(pre);
+  document.getElementById('preview-taxes').textContent = fmt(taxes);
+  document.getElementById('preview-post').textContent = fmt(post);
+  document.getElementById('preview-net').textContent = fmt(net);
+  document.getElementById('preview-net').style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+  schedulePreviewYtdCount();
+}
+
+// Live preview
+document.querySelectorAll('#pay-form input[type=number]').forEach(el => el.addEventListener('input', updatePreview));
+
+async function refreshPreviewYtdCount() {
+  const personId = parseInt(document.getElementById('f-person_id')?.value || 0) || null;
+  const payDate = document.getElementById('f-pay_date')?.value || '';
+  const out = document.getElementById('preview-ytd-count');
+  if (!out) return;
+  if (!personId || !payDate || payDate.length < 4) {
+    out.textContent = '—';
+    return;
+  }
+  const year = parseInt(payDate.substring(0, 4), 10);
+  if (!year) {
+    out.textContent = '—';
+    return;
+  }
+  try {
+    const items = await api(`/api/pay-advices/?person_id=${personId}&year=${year}&limit=500`);
+    const editId = parseInt(document.getElementById('edit-id')?.value || 0) || null;
+    const upToDate = items.filter(i => i.pay_date <= payDate);
+    const itemsForYtd = editId ? upToDate.filter(i => i.id !== editId) : upToDate;
+    const sum = (f) => itemsForYtd.reduce((a, i) => a + toNum(i[f]), 0);
+
+    const v = (id) => parseFloat(document.getElementById(id)?.value || 0) || 0;
+    const basePay = v('f-gross');
+    const gross = grossFromBase(basePay, {
+      tuition: v('f-tuition'),
+      er_ltd: v('f-er_ltd'),
+      er_std: v('f-er_std'),
+      basic_life_imputed_income: v('f-basic_life_imputed_income'),
+      imputed_famli_ee: v('f-imputed_famli_ee')
+    });
+    const pre = v('f-dental_pre') + v('f-medical_pre') + v('f-retirement_plan') + v('f-park_permit');
+    const taxes = v('f-federal_taxes') + v('f-medicare') + v('f-social_security') + v('f-state_tax') + v('f-state_misc2');
+    const post = v('f-ltd_post') + v('f-vol_add_post') + v('f-std_post');
+    const net = gross - pre - taxes - post - v('f-imputed_famli_ee') - v('f-basic_life_imputed_income') - v('f-tuition');
+    const retirementContrib = v('f-retirement_plan') + v('f-er_retirement_401a');
+
+    const count = itemsForYtd.length + 1;
+    out.textContent = `${count}`;
+    document.getElementById('preview-ytd-gross').textContent = fmt(sum('gross') + gross);
+    document.getElementById('preview-ytd-retirement-contrib').textContent = fmt(sum('retirement_plan') + sum('er_retirement_401a') + retirementContrib);
+    document.getElementById('preview-ytd-pre').textContent = fmt(sum('total_pre_tax_deductions') + pre);
+    document.getElementById('preview-ytd-taxes').textContent = fmt(sum('total_taxes') + taxes);
+    document.getElementById('preview-ytd-post').textContent = fmt(sum('total_post_tax_deductions') + post);
+    document.getElementById('preview-ytd-net').textContent = fmt(sum('net_pay') + net);
+  } catch (e) {
+    out.textContent = '—';
+    ['preview-ytd-gross','preview-ytd-retirement-contrib','preview-ytd-pre','preview-ytd-taxes','preview-ytd-post','preview-ytd-net']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '$0.00'; });
+  }
+}
+
+function schedulePreviewYtdCount() {
+  if (previewYtdTimer) clearTimeout(previewYtdTimer);
+  previewYtdTimer = setTimeout(refreshPreviewYtdCount, 180);
+}
+
+document.getElementById('f-person_id')?.addEventListener('change', updatePreview);
+document.getElementById('f-pay_date')?.addEventListener('change', updatePreview);
+
+function populatePersonDropdown() {
+  const sel = document.getElementById('f-person_id');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Select person —</option>';
+  allPersons.forEach(p => sel.innerHTML += `<option value="${p.id}">${p.name}</option>`);
+  if (current) sel.value = current;
+}
+
+document.getElementById('pay-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const editId = document.getElementById('edit-id').value;
+  const payload = {};
+  FIELDS.forEach(f => {
+    const el = document.getElementById(`f-${f}`);
+    if (!el) return;
+    if (f === 'person_id') payload[f] = el.value ? parseInt(el.value) : null;
+    else if (el.type === 'number') payload[f] = parseFloat(el.value || 0) || 0;
+    else payload[f] = el.value || null;
+  });
+  payload.gross = grossFromBase(payload.gross, payload);
+  if (!payload.person_id) { showNotif('Please select a person.', 'error'); return; }
+  try {
+    if (editId) {
+      await api(`/api/pay-advices/${editId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      showNotif('Pay stub updated!');
+    } else {
+      await api('/api/pay-advices/', { method: 'POST', body: JSON.stringify(payload) });
+      showNotif('Pay stub saved!');
+    }
+    resetForm();
+    await loadPersonsAndYears();
+    showPage('pay-advices');
+  } catch(e) { showNotif(e.message, 'error'); }
+});
+
+async function editPay(id) {
+  const item = await api(`/api/pay-advices/${id}`);
+  await populatePersonDropdown();
+  document.getElementById('edit-id').value = id;
+  document.getElementById('form-page-title').textContent = 'Edit Pay Stub';
+  document.getElementById('submit-btn').textContent = '💾 Update Pay Stub';
+  FIELDS.forEach(f => {
+    const el = document.getElementById(`f-${f}`);
+    if (el) el.value = item[f] ?? '';
+  });
+  document.getElementById('f-gross').value = baseFromGross(item).toFixed(2);
+  updatePreview();
+  showPage('add-pay');
+}
+
+async function deletePay(id) {
+  if (!confirm('Delete this pay stub? This cannot be undone.')) return;
+  try {
+    await api(`/api/pay-advices/${id}`, { method: 'DELETE' });
+    showNotif('Pay stub deleted.');
+    await loadPersonsAndYears();
+    loadPayList();
+  } catch(e) { showNotif(e.message, 'error'); }
+}
+
+// ─── People CRUD ──────────────────────────────────────────────────────────────
+async function loadPeople() {
+  allPersons = await api('/api/persons/');
+  const el = document.getElementById('people-list');
+  if (!allPersons.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">👤</div><div>No people yet — add one above.</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div style="display:grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap:14px;">
+    ${allPersons.map(p => `
+      <div style="background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:1.1rem; font-weight:700;">${p.name}</div>
+        ${p.notes ? `<div style="font-size:0.82rem; color:var(--text2);">${p.notes}</div>` : ''}
+        <div style="font-size:0.78rem; color:var(--text2);">Added ${p.created_at ? p.created_at.substring(0,10) : ''}</div>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <button class="btn btn-secondary btn-sm" onclick="editPerson(${p.id},'${p.name.replace(/'/g,"\\'")}','${(p.notes||'').replace(/'/g,"\\'")}')">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePerson(${p.id})">🗑 Delete</button>
+        </div>
+      </div>`).join('')}
+  </div>`;
+  buildPersonFilter('dash-person-filter','dash');
+  buildPersonFilter('list-person-filter','list');
+  buildPersonFilter('tax-person-filter','tax');
+  populatePersonDropdown();
+}
+
+function resetPersonForm() {
+  document.getElementById('p-edit-id').value = '';
+  document.getElementById('p-name').value = '';
+  document.getElementById('p-notes').value = '';
+  document.getElementById('p-submit-btn').textContent = '➕ Add Person';
+}
+
+function editPerson(id, name, notes) {
+  document.getElementById('p-edit-id').value = id;
+  document.getElementById('p-name').value = name;
+  document.getElementById('p-notes').value = notes;
+  document.getElementById('p-submit-btn').textContent = '💾 Update Person';
+  document.getElementById('p-name').focus();
+}
+
+document.getElementById('person-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const editId = document.getElementById('p-edit-id').value;
+  const payload = {
+    name: document.getElementById('p-name').value.trim(),
+    notes: document.getElementById('p-notes').value.trim() || null,
+  };
+  try {
+    if (editId) {
+      await api(`/api/persons/${editId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      showNotif('Person updated!');
+    } else {
+      await api('/api/persons/', { method: 'POST', body: JSON.stringify(payload) });
+      showNotif(`${payload.name} added!`);
+    }
+    resetPersonForm();
+    await loadPersonsAndYears();
+    loadPeople();
+  } catch(e) { showNotif(e.message, 'error'); }
+});
+
+async function deletePerson(id) {
+  if (!confirm('Delete this person? They must have no pay stubs.')) return;
+  try {
+    await api(`/api/persons/${id}`, { method: 'DELETE' });
+    showNotif('Person deleted.');
+    await loadPersonsAndYears();
+    loadPeople();
+  } catch(e) { showNotif(e.message, 'error'); }
+}
+
+// ─── Tax Summary ──────────────────────────────────────────────────────────────
+async function loadTaxSummary() {
+  if (!selectedTaxYear) return;
+  try {
+    const qs = selectedTaxPerson ? `?person_id=${selectedTaxPerson}` : '';
+    const s = await api(`/api/pay-advices/summary/${selectedTaxYear}${qs}`);
+    const el = document.getElementById('tax-summary-content');
+    const personLabel = s.person_name ? ` — ${s.person_name}` : '';
+    el.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Base Pay${personLabel}</div><div class="stat-value blue">${fmt(parseFloat(s.total_gross) - (parseFloat(s.total_tuition) + parseFloat(s.total_er_ltd) + parseFloat(s.total_er_std) + parseFloat(s.total_basic_life_imputed_income) + parseFloat(s.total_imputed_famli_ee)))}</div></div>
+        <div class="stat-card"><div class="stat-label">Net Pay</div><div class="stat-value green">${fmt(s.total_net_pay)}</div></div>
+        <div class="stat-card"><div class="stat-label">Total Taxes</div><div class="stat-value red">${fmt(s.total_taxes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Pay Stubs</div><div class="stat-value">${s.pay_count}</div></div>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin-top:4px;">
+        <div class="card">
+          <div class="summary-section-title">💰 Income</div>
+          <div class="summary-row"><span>Base Pay</span><span>${fmt(parseFloat(s.total_gross) - (parseFloat(s.total_tuition) + parseFloat(s.total_er_ltd) + parseFloat(s.total_er_std) + parseFloat(s.total_basic_life_imputed_income) + parseFloat(s.total_imputed_famli_ee)))}</span></div>
+          <div class="summary-row"><span>Gross Add-ons (Tuition + ER LTD + ER STD + Basic Life Imputed + Imputed Apparel)</span><span>${fmt(parseFloat(s.total_tuition) + parseFloat(s.total_er_ltd) + parseFloat(s.total_er_std) + parseFloat(s.total_basic_life_imputed_income) + parseFloat(s.total_imputed_famli_ee))}</span></div>
+          <div class="summary-row total"><span>Gross Pay (Calculated)</span><span>${fmt(s.total_gross)}</span></div>
+        </div>
+        <div class="card">
+          <div class="summary-section-title">🏥 Pre-Tax Deductions</div>
+          <div class="summary-row"><span>Dental</span><span>${fmt(s.total_dental_pre)}</span></div>
+          <div class="summary-row"><span>Medical</span><span>${fmt(s.total_medical_pre)}</span></div>
+          <div class="summary-row"><span>Retirement Plan</span><span>${fmt(s.total_retirement_plan)}</span></div>
+          <div class="summary-row"><span>Parking Permit</span><span>${fmt(s.total_park_permit)}</span></div>
+          <div class="summary-row total"><span>Total</span><span>${fmt(s.total_pre_tax_deductions)}</span></div>
+        </div>
+        <div class="card">
+          <div class="summary-section-title">🏛️ Taxes (W-2 Reference)</div>
+          <div class="summary-row"><span>Federal Taxes</span><span>${fmt(s.total_federal_taxes)}</span></div>
+          <div class="summary-row"><span>Medicare</span><span>${fmt(s.total_medicare)}</span></div>
+          <div class="summary-row"><span>Social Security</span><span>${fmt(s.total_social_security)}</span></div>
+          <div class="summary-row"><span>State Tax</span><span>${fmt(s.total_state_tax)}</span></div>
+          <div class="summary-row"><span>FAMLI/PFML</span><span>${fmt(s.total_state_misc2)}</span></div>
+          <div class="summary-row total"><span>Total</span><span>${fmt(s.total_taxes)}</span></div>
+        </div>
+        <div class="card">
+          <div class="summary-section-title">📋 Post-Tax Deductions</div>
+          <div class="summary-row"><span>LTD</span><span>${fmt(s.total_ltd_post)}</span></div>
+          <div class="summary-row"><span>Vol AD&D</span><span>${fmt(s.total_vol_add_post)}</span></div>
+          <div class="summary-row"><span>STD</span><span>${fmt(s.total_std_post)}</span></div>
+          <div class="summary-row total"><span>Total</span><span>${fmt(s.total_post_tax_deductions)}</span></div>
+        </div>
+        <div class="card">
+          <div class="summary-section-title">🏢 Employer Allowances</div>
+          <div class="summary-row"><span>LTD Allowance</span><span>${fmt(s.total_er_ltd)}</span></div>
+          <div class="summary-row"><span>STD Allowance</span><span>${fmt(s.total_er_std)}</span></div>
+          <div class="summary-row"><span>Basic Life Imputed Income</span><span>${fmt(s.total_basic_life_imputed_income)}</span></div>
+          <div class="summary-row"><span>Imputed Apparel</span><span>${fmt(s.total_imputed_famli_ee)}</span></div>
+          <div class="summary-row total"><span>Total</span><span>${fmt(parseFloat(s.total_er_ltd) + parseFloat(s.total_er_std) + parseFloat(s.total_basic_life_imputed_income) + parseFloat(s.total_imputed_famli_ee))}</span></div>
+        </div>
+        <div class="card">
+          <div class="summary-section-title">🎓 Miscellaneous</div>
+          <div class="summary-row"><span>Tuition (Deduction Registry)</span><span>${fmt(s.total_tuition)}</span></div>
+        </div>
+        <div class="card" style="background: rgba(52,199,123,0.08); border-color: var(--green);">
+          <div class="summary-section-title" style="color:var(--green)">✅ Net Pay</div>
+          <div class="summary-row net"><span>Total Net Pay</span><span>${fmt(s.total_net_pay)}</span></div>
+          <div style="color:var(--text2); font-size:0.8rem; margin-top:8px;">Avg per pay stub: ${fmt(parseFloat(s.total_net_pay)/s.pay_count)}</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:4px;">
+        <div class="card-title">🏢 Employer Paid Benefits</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+          <div>
+            <div class="summary-section-title">Breakdown</div>
+            <div class="summary-row"><span>401(a) Employer</span><span>${fmt(s.total_er_retirement_401a)}</span></div>
+            <div class="summary-row"><span>HSA (Employer)</span><span>${fmt(s.total_er_hsa)}</span></div>
+            <div class="summary-row"><span>Dental (Employer)</span><span>${fmt(s.total_er_dental)}</span></div>
+            <div class="summary-row"><span>Medical (Employer)</span><span>${fmt(s.total_er_medical)}</span></div>
+            <div class="summary-row total"><span>Total Employer Paid</span><span>${fmt(parseFloat(s.total_er_retirement_401a) + parseFloat(s.total_er_hsa) + parseFloat(s.total_er_dental) + parseFloat(s.total_er_medical))}</span></div>
+          </div>
+          <div style="background: rgba(124,92,191,0.08); border:1px solid var(--accent2); border-radius:10px; padding:16px;">
+            <div class="summary-section-title" style="color:var(--accent2)">💼 Employer Paid Snapshot</div>
+            <div class="summary-row"><span>Net Pay</span><span>${fmt(s.total_net_pay)}</span></div>
+            <div class="summary-row"><span>+ Employer Paid Benefits</span><span style="color:var(--accent2)">+${fmt(parseFloat(s.total_er_retirement_401a) + parseFloat(s.total_er_hsa) + parseFloat(s.total_er_dental) + parseFloat(s.total_er_medical))}</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    document.getElementById('tax-summary-content').innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>No data for ${selectedTaxYear}</div></div>`;
+  }
+}
+
+// ─── Budget ───────────────────────────────────────────────────────────────────
+async function loadBudget() {
+  const goals = await api('/api/budget/');
+  const listEl = document.getElementById('budget-goals-list');
+  if (!goals.length) {
+    listEl.innerHTML = `<div class="empty-state"><div class="icon">🎯</div><div>No budget goals yet</div></div>`;
+    document.getElementById('budget-vs-income-card').style.display = 'none';
+    return;
+  }
+
+  listEl.innerHTML = `
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap:12px;">
+    ${goals.map(g => `
+      <div style="background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
+        <div style="font-weight:600;">${g.category}</div>
+        <div style="color:var(--green); font-size:1.2rem; font-weight:700;">${fmt(g.monthly_amount)}<span style="font-size:0.75rem; color:var(--text2);"> /mo</span></div>
+        ${g.notes ? `<div style="font-size:0.8rem; color:var(--text2);">${g.notes}</div>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="deleteGoal(${g.id})">Delete</button>
+      </div>
+    `).join('')}
+    </div>
+  `;
+
+  // Budget vs last net pay
+  try {
+    const items = await api('/api/pay-advices/');
+    if (items.length) {
+      const sorted = [...items].sort((a,b) => b.pay_date.localeCompare(a.pay_date));
+      const lastNet = parseFloat(sorted[0].net_pay);
+      const totalGoals = goals.reduce((a, g) => a + parseFloat(g.monthly_amount), 0);
+
+      let barsHtml = goals.map(g => {
+        const amt = parseFloat(g.monthly_amount);
+        const pct = Math.min((amt / lastNet) * 100, 100);
+        const cls = pct < 70 ? 'ok' : pct < 90 ? 'warn' : 'over';
+        return `
+          <div class="budget-row">
+            <div class="budget-label">${g.category}</div>
+            <div class="budget-bar-wrap"><div class="budget-bar ${cls}" style="width:${pct.toFixed(1)}%"></div></div>
+            <div class="budget-pct">${fmt(amt)}</div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('budget-bars').innerHTML = barsHtml;
+      const remaining = lastNet - totalGoals;
+      const remainingColor = remaining >= 0 ? 'var(--green)' : 'var(--red)';
+      document.getElementById('budget-summary').innerHTML = `
+        Last net pay: <strong>${fmt(lastNet)}</strong> &nbsp;|&nbsp;
+        Total budgeted: <strong>${fmt(totalGoals)}</strong> &nbsp;|&nbsp;
+        Remaining: <strong style="color:${remainingColor}">${fmt(remaining)}</strong>
+      `;
+      document.getElementById('budget-vs-income-card').style.display = 'block';
+    }
+  } catch(e) {}
+}
+
+document.getElementById('budget-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    category: document.getElementById('b-category').value,
+    monthly_amount: parseFloat(document.getElementById('b-amount').value) || 0,
+    notes: document.getElementById('b-notes').value || null
+  };
+  try {
+    await api('/api/budget/', { method: 'POST', body: JSON.stringify(payload) });
+    showNotif('Budget goal saved!');
+    document.getElementById('b-category').value = '';
+    document.getElementById('b-amount').value = '';
+    document.getElementById('b-notes').value = '';
+    loadBudget();
+  } catch(e) { showNotif(e.message, 'error'); }
+});
+
+async function deleteGoal(id) {
+  if (!confirm('Delete this budget goal?')) return;
+  await api(`/api/budget/${id}`, { method: 'DELETE' });
+  showNotif('Budget goal deleted.');
+  loadBudget();
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+function doExport(type) {
+  const qs = new URLSearchParams();
+  const year = document.getElementById('export-year').value;
+  const person = document.getElementById('export-person').value;
+  if (year)   qs.set('year', year);
+  if (person) qs.set('person_id', person);
+  const q = qs.toString();
+  window.location.href = `/api/pay-advices/export/${type}${q ? '?' + q : ''}`;
+}
+
+function closeModal() { document.getElementById('edit-modal').classList.remove('open'); }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  await loadPersonsAndYears();
+  showPage(currentPathPage(), { updateUrl: false });
+})();
+</script>
+</body>
+</html>
