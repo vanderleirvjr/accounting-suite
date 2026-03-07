@@ -242,3 +242,24 @@ class BankTransactionBulkLabelRequest(BaseModel):
     tx_ids: List[int]
     labels: List[str]
     mode: str = "add"
+
+
+class TaxCalculatorInputBase(BaseModel):
+    standard_deduction: Decimal = Field(default=Decimal("0.00"))
+    hsa_contributions: Decimal = Field(default=Decimal("0.00"))
+    investment_earnings: Decimal = Field(default=Decimal("0.00"))
+    investment_withheld: Decimal = Field(default=Decimal("0.00"))
+    additional_credits: Decimal = Field(default=Decimal("0.00"))
+    federal_tax_before_credits: Decimal = Field(default=Decimal("0.00"))
+
+
+class TaxCalculatorInputUpdate(TaxCalculatorInputBase):
+    pass
+
+
+class TaxCalculatorInputResponse(TaxCalculatorInputBase):
+    id: Optional[int] = None
+    year: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}

@@ -238,6 +238,12 @@
     .summary-row.total { font-weight: 700; font-size: 1rem; }
     .summary-row.net { font-weight: 800; font-size: 1.1rem; color: var(--green); border-top: 2px solid var(--border); margin-top: 4px; padding-top: 12px; }
     .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+    .tax-calc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+    .tc-input[readonly] {
+      opacity: 0.72;
+      cursor: not-allowed;
+      border-style: dashed;
+    }
   </style>
 </head>
 <body>
@@ -252,8 +258,8 @@
     <a class="nav-item" href="/pay-advices" data-page="pay-advices"><span class="nav-icon">🧾</span><span class="nav-text">Pay Advices</span></a>
     <a class="nav-item" href="/transactions" data-page="transactions"><span class="nav-icon">🏦</span><span class="nav-text">Transactions</span></a>
     <a class="nav-item" href="/expenses" data-page="expenses"><span class="nav-icon">💸</span><span class="nav-text">Expenses</span></a>
-    <a class="nav-item" href="/add-pay" data-page="add-pay"><span class="nav-icon">➕</span><span class="nav-text">Add Pay Stub</span></a>
     <a class="nav-item" href="/tax-summary" data-page="tax-summary"><span class="nav-icon">🏛️</span><span class="nav-text">Tax Summary</span></a>
+    <a class="nav-item" href="/tax-calculator" data-page="tax-calculator"><span class="nav-icon">🧮</span><span class="nav-text">Tax Calculator</span></a>
     <a class="nav-item" href="/w2" data-page="w2"><span class="nav-icon">🧾</span><span class="nav-text">W‑2</span></a>
     <a class="nav-item" href="/logout"><span class="nav-icon">🚪</span><span class="nav-text">Logout</span></a>
   </nav>
@@ -314,10 +320,14 @@
         <div class="stat-card"><div class="stat-label">Base Pay (YTD)</div><div class="stat-value blue" id="stat-gross">—</div></div>
         <div class="stat-card"><div class="stat-label">Net Pay (YTD)</div><div class="stat-value green" id="stat-net">—</div></div>
         <div class="stat-card"><div class="stat-label">Total Taxes (YTD)</div><div class="stat-value red" id="stat-taxes">—</div></div>
-        <div class="stat-card"><div class="stat-label">Retirement (YTD)</div><div class="stat-value yellow" id="stat-retirement">—</div></div>
         <div class="stat-card"><div class="stat-label">Retirement Contributions (YTD)</div><div class="stat-value" style="color:var(--accent2)" id="stat-er">—</div></div>
         <div class="stat-card"><div class="stat-label">Pay Stubs This Year</div><div class="stat-value" id="stat-count">—</div></div>
         <div class="stat-card"><div class="stat-label">Avg Net Per Stub</div><div class="stat-value green" id="stat-avg">—</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📆 Taxes Paid Per Year</div>
+        <div class="chart-container" style="height:300px"><canvas id="chart-yearly-taxes"></canvas></div>
       </div>
 
       <div class="chart-grid">
@@ -329,11 +339,6 @@
           <div class="card-title">🥧 Pay Breakdown</div>
           <div class="chart-container"><canvas id="chart-breakdown"></canvas></div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">🏛️ Tax Breakdown</div>
-        <div class="chart-container" style="height:220px"><canvas id="chart-taxes"></canvas></div>
       </div>
 
       <div class="card">
@@ -351,6 +356,9 @@
     <div class="page" id="page-pay-advices">
       <div class="page-title">Pay Advices</div>
       <div class="page-sub">All recorded pay stubs</div>
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="showPage('add-pay')">➕ Add Pay Stub</button>
+      </div>
 
       <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:4px;">
         <div>
@@ -755,6 +763,84 @@
       </div>
     </div>
 
+    <!-- Tax Calculator -->
+    <div class="page" id="page-tax-calculator">
+      <div class="page-title">Tax Calculator</div>
+      <div class="page-sub">Combined tax estimate from pay stubs/W‑2 data across all people</div>
+
+      <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:4px;">
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Year</div>
+          <div class="year-filter" id="tax-calc-year-filter" style="margin-bottom:0"></div>
+        </div>
+      </div>
+      <div style="height:16px"></div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+          <div class="card-title" style="margin:0;">✍️ Inputs</div>
+          <button type="button" class="btn btn-secondary btn-sm" id="tc-lock-btn" onclick="toggleTaxCalcInputsLock()">🔒 Locked</button>
+        </div>
+        <div class="tax-calc-grid">
+          <div class="form-group">
+            <label>Standard<br/>Deduction</label>
+            <input class="tc-input" type="number" step="0.01" id="tc-standard-deduction" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>HSA Contributions<br/>(reduces AGI)</label>
+            <input class="tc-input" type="number" step="0.01" id="tc-hsa" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Investment Earnings (adds to taxable)</label>
+            <input class="tc-input" type="number" step="0.01" id="tc-investments" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Investments Withheld (adds to withholding)</label>
+            <input class="tc-input" type="number" step="0.01" id="tc-investments-withheld" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Additional Credits (Child Credit, etc.)</label>
+            <input class="tc-input" type="number" step="0.01" id="tc-credits" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Federal Tax Before Credits (exact amount)</label>
+            <input class="tc-input" type="number" step="0.01" id="tc-fed-before-input" placeholder="0.00" />
+          </div>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text2); margin-top:10px;">Inputs are locked to prevent accidental edits. Click unlock to change values.</div>
+      </div>
+
+      <div class="stat-grid" id="tc-stats">
+        <div class="stat-card"><div class="stat-label">W‑2 Taxable Wages (Box 1, Combined)</div><div class="stat-value blue" id="tc-box1">—</div></div>
+        <div class="stat-card"><div class="stat-label">Adjusted Gross Income (AGI)</div><div class="stat-value yellow" id="tc-agi">—</div></div>
+        <div class="stat-card"><div class="stat-label">Taxable Income After Std Deduction</div><div class="stat-value blue" id="tc-taxable">—</div></div>
+        <div class="stat-card"><div class="stat-label">Est. Federal Tax (After Credits)</div><div class="stat-value red" id="tc-fed-after">—</div></div>
+        <div class="stat-card"><div class="stat-label">Federal Withholding (W‑2 + Investments)</div><div class="stat-value" id="tc-fed-withheld">—</div></div>
+        <div class="stat-card"><div class="stat-label">Est. Refund / Owed</div><div class="stat-value" id="tc-refund-owed">—</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📌 Reference Totals (From Pay Stubs)</div>
+        <div class="summary-grid">
+          <div class="summary-section">
+            <div class="summary-row"><span>Gross Pay (Calculated)</span><span id="tc-ref-gross">—</span></div>
+            <div class="summary-row"><span>Pre-Tax Deductions</span><span id="tc-ref-pre">—</span></div>
+            <div class="summary-row"><span>Federal Taxes Withheld</span><span id="tc-ref-fed">—</span></div>
+            <div class="summary-row"><span>State Taxes Withheld</span><span id="tc-ref-state">—</span></div>
+            <div class="summary-row"><span>Social Security Withheld</span><span id="tc-ref-social">—</span></div>
+            <div class="summary-row"><span>Medicare Withheld</span><span id="tc-ref-medicare">—</span></div>
+          </div>
+          <div class="summary-section">
+            <div style="color:var(--text2); font-size:0.84rem; line-height:1.5;">
+              This planner auto-loads combined W‑2-style values from all pay stubs in the selected year.
+              Use inputs to test scenarios: standard deduction, HSA adjustments, investment income, and credits.
+              Final filing values should always be verified against official tax forms.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- W-2 Summary -->
     <div class="page" id="page-w2">
       <div class="page-title">W‑2 Worksheet</div>
@@ -936,16 +1022,23 @@ const TX_ACCOUNT_OPTIONS = [
 let selectedTxAccount = TX_ACCOUNT_OPTIONS[0].key;
 let selectedTaxYear = null;
 let selectedTaxPerson = null;
+let selectedTaxCalcYear = null;
+let taxCalcSummary = null;
+let taxCalcInputsLocked = true;
+let taxCalcSaveTimer = null;
+let taxCalcHydratingInputs = false;
 let selectedW2Year = null;
 let selectedW2Person = null;
 let chartPayTrend = null;
 let chartBreakdown = null;
-let chartTaxes = null;
 let chartMonthlyTaxes = null;
+let chartYearlyTaxes = null;
 let chartExpensesMonthly = null;
 const LIST_FILTERS_KEY = 'paytracker:listFilters:v1';
 const TX_FILTERS_KEY = 'paytracker:txFilters:v1';
 const TAX_FILTERS_KEY = 'paytracker:taxFilters:v1';
+const TAX_CALC_FILTERS_KEY = 'paytracker:taxCalcFilters:v1';
+const TAX_CALC_UI_KEY = 'paytracker:taxCalcUi:v1';
 const W2_FILTERS_KEY = 'paytracker:w2Filters:v1';
 const EXP_FILTERS_KEY = 'paytracker:expFilters:v1';
 const SIDEBAR_COLLAPSED_KEY = 'paytracker:sidebarCollapsed:v1';
@@ -1071,6 +1164,53 @@ function restoreTaxFilters() {
   } catch (_) {}
 }
 
+function persistTaxCalcFilters() {
+  try {
+    localStorage.setItem(TAX_CALC_FILTERS_KEY, JSON.stringify({ selected_year: selectedTaxCalcYear }));
+  } catch (_) {}
+}
+
+function restoreTaxCalcFilters() {
+  try {
+    const raw = localStorage.getItem(TAX_CALC_FILTERS_KEY);
+    if (!raw) return;
+    const store = JSON.parse(raw);
+    if (store.selected_year != null) selectedTaxCalcYear = Number(store.selected_year) || null;
+  } catch (_) {}
+}
+
+function persistTaxCalcUiState() {
+  try {
+    localStorage.setItem(TAX_CALC_UI_KEY, JSON.stringify({ locked: !!taxCalcInputsLocked }));
+  } catch (_) {}
+}
+
+function restoreTaxCalcUiState() {
+  try {
+    const raw = localStorage.getItem(TAX_CALC_UI_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    taxCalcInputsLocked = !!parsed.locked;
+  } catch (_) {}
+}
+
+function setTaxCalcInputsLocked(locked) {
+  taxCalcInputsLocked = !!locked;
+  const ids = ['tc-standard-deduction','tc-hsa','tc-investments','tc-investments-withheld','tc-credits','tc-fed-before-input'];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.readOnly = taxCalcInputsLocked;
+  });
+  const btn = document.getElementById('tc-lock-btn');
+  if (btn) btn.textContent = taxCalcInputsLocked ? '🔒 Locked' : '🔓 Unlocked';
+  persistTaxCalcUiState();
+}
+
+function toggleTaxCalcInputsLock() {
+  setTaxCalcInputsLocked(!taxCalcInputsLocked);
+}
+
 function persistW2Filters() {
   try {
     localStorage.setItem(W2_FILTERS_KEY, JSON.stringify({
@@ -1182,6 +1322,7 @@ function showPage(name, opts = { updateUrl: true }) {
   if (name === 'add-pay')     populatePersonDropdown();
   if (name === 'budget')      loadBudget();
   if (name === 'tax-summary') loadTaxSummary();
+  if (name === 'tax-calculator') loadTaxCalculator();
   if (name === 'w2')          loadW2Summary();
 }
 
@@ -1194,6 +1335,7 @@ const PATH_TO_PAGE = {
   '/expenses': 'expenses',
   '/add-pay': 'add-pay',
   '/tax-summary': 'tax-summary',
+  '/tax-calculator': 'tax-calculator',
   '/w2': 'w2',
   '/budget': 'budget',
   '/export': 'export',
@@ -1206,6 +1348,7 @@ const PAGE_TO_PATH = {
   'expenses': '/expenses',
   'add-pay': '/add-pay',
   'tax-summary': '/tax-summary',
+  'tax-calculator': '/tax-calculator',
   'w2': '/w2',
   'budget': '/budget',
   'export': '/export',
@@ -1230,6 +1373,8 @@ async function loadPersonsAndYears() {
     restoreListFilters();
     restoreTxFilters();
     restoreTaxFilters();
+    restoreTaxCalcFilters();
+    restoreTaxCalcUiState();
     restoreW2Filters();
     restoreExpFilters();
     if (!allYears.length) allYears = [new Date().getFullYear()];
@@ -1250,6 +1395,8 @@ async function loadPersonsAndYears() {
     selectedTaxYear = validTaxYear ? selectedTaxYear : allYears[allYears.length - 1];
     const validTaxPerson = selectedTaxPerson === null || personIds.has(selectedTaxPerson);
     selectedTaxPerson = validTaxPerson ? selectedTaxPerson : null;
+    const validTaxCalcYear = selectedTaxCalcYear !== null && allYears.includes(selectedTaxCalcYear);
+    selectedTaxCalcYear = validTaxCalcYear ? selectedTaxCalcYear : allYears[allYears.length - 1];
     const validW2Year = selectedW2Year !== null && allYears.includes(selectedW2Year);
     selectedW2Year = validW2Year ? selectedW2Year : allYears[allYears.length - 1];
     const validW2Person = selectedW2Person === null || personIds.has(selectedW2Person);
@@ -1271,6 +1418,7 @@ async function loadPersonsAndYears() {
     buildTxAccountFilter();
     buildTxLabelFilter();
     buildYearFilter('tax-year-filter',  'tax');
+    buildYearFilter('tax-calc-year-filter', 'taxcalc');
     buildYearFilter('w2-year-filter',   'w2');
     buildYearFilter('exp-year-filter',  'exp');
 
@@ -1333,6 +1481,7 @@ function buildYearFilter(containerId, prefix) {
     else if (prefix === 'list') active = selectedListYear === y;
     else if (prefix === 'tx') active = selectedTxYear === y;
     else if (prefix === 'tax') active = selectedTaxYear === y;
+    else if (prefix === 'taxcalc') active = selectedTaxCalcYear === y;
     else if (prefix === 'w2') active = selectedW2Year === y;
     else if (prefix === 'exp') active = selectedExpYear === y;
     html += `<button class="year-btn ${active ? 'active' : ''}" onclick="setYear('${prefix}', ${y})">${y}</button>`;
@@ -1345,6 +1494,7 @@ function setYear(prefix, year) {
   if (prefix === 'list') { selectedListYear = year; persistListFilters(); buildYearFilter('list-year-filter', 'list'); loadPayList(); }
   if (prefix === 'tx') { selectedTxYear = year; persistTxFilters(); buildYearFilter('tx-year-filter', 'tx'); loadTransactions(); }
   if (prefix === 'tax') { selectedTaxYear = year; persistTaxFilters(); buildYearFilter('tax-year-filter', 'tax'); loadTaxSummary(); }
+  if (prefix === 'taxcalc') { selectedTaxCalcYear = year; persistTaxCalcFilters(); buildYearFilter('tax-calc-year-filter', 'taxcalc'); loadTaxCalculator(); }
   if (prefix === 'w2') { selectedW2Year = year; persistW2Filters(); buildYearFilter('w2-year-filter', 'w2'); loadW2Summary(); }
   if (prefix === 'exp') { selectedExpYear = year; persistExpFilters(); buildYearFilter('exp-year-filter', 'exp'); loadExpensesOverview(); }
 }
@@ -1708,15 +1858,68 @@ async function loadExpensesOverview() {
   }
 }
 
+function renderYearlyTaxesChart(items) {
+  const yearly = new Map();
+  items.forEach((i) => {
+    const y = String(i.pay_date || '').slice(0, 4);
+    if (!y) return;
+    if (!yearly.has(y)) yearly.set(y, { federal: 0, state: 0, social: 0, medicare: 0, famli: 0 });
+    const row = yearly.get(y);
+    row.federal += toNum(i.federal_taxes);
+    row.state += toNum(i.state_tax);
+    row.social += toNum(i.social_security);
+    row.medicare += toNum(i.medicare);
+    row.famli += toNum(i.state_misc2);
+  });
+  const labels = [...yearly.keys()].sort();
+  const federal = labels.map((y) => parseFloat(yearly.get(y).federal.toFixed(2)));
+  const state = labels.map((y) => parseFloat(yearly.get(y).state.toFixed(2)));
+  const social = labels.map((y) => parseFloat(yearly.get(y).social.toFixed(2)));
+  const medicare = labels.map((y) => parseFloat(yearly.get(y).medicare.toFixed(2)));
+  const famli = labels.map((y) => parseFloat(yearly.get(y).famli.toFixed(2)));
+
+  if (chartYearlyTaxes) chartYearlyTaxes.destroy();
+  chartYearlyTaxes = new Chart(document.getElementById('chart-yearly-taxes'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Federal', data: federal, backgroundColor: '#e05c5c', borderRadius: 4 },
+        { label: 'State', data: state, backgroundColor: '#7c5cbf', borderRadius: 4 },
+        { label: 'Social Security', data: social, backgroundColor: '#4f8ef7', borderRadius: 4 },
+        { label: 'Medicare', data: medicare, backgroundColor: '#f0b429', borderRadius: 4 },
+        { label: 'FAMLI/PFML', data: famli, backgroundColor: '#34c77b', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b92b8' } } },
+      scales: {
+        x: { ticks: { color: '#8b92b8' }, grid: { color: '#2e3350' } },
+        y: { ticks: { color: '#8b92b8', callback: (v) => '$' + v.toLocaleString() }, grid: { color: '#2e3350' } }
+      }
+    }
+  });
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   try {
     const qs = new URLSearchParams();
     if (selectedDashYear)   qs.set('year', selectedDashYear);
     if (selectedDashPerson) qs.set('person_id', selectedDashPerson);
-    const items = await api(`/api/pay-advices/?${qs}`);
+    qs.set('limit', '5000');
+    const yearlyQs = new URLSearchParams();
+    if (selectedDashPerson) yearlyQs.set('person_id', selectedDashPerson);
+    yearlyQs.set('limit', '5000');
+    const [items, yearlyItems] = await Promise.all([
+      api(`/api/pay-advices/?${qs.toString()}`),
+      api(`/api/pay-advices/?${yearlyQs.toString()}`)
+    ]);
+    renderYearlyTaxesChart(yearlyItems);
     if (!items.length) {
-      ['stat-gross','stat-net','stat-taxes','stat-retirement','stat-er','stat-count','stat-avg'].forEach(id => document.getElementById(id).textContent = '—');
+      ['stat-gross','stat-net','stat-taxes','stat-er','stat-count','stat-avg'].forEach(id => document.getElementById(id).textContent = '—');
       if (chartMonthlyTaxes) { chartMonthlyTaxes.destroy(); chartMonthlyTaxes = null; }
       document.getElementById('dash-detail-content').innerHTML = `<div class="empty-state" style="grid-column:1/-1; padding:20px;"><div>No pay data for the selected filters.</div></div>`;
       return;
@@ -1731,7 +1934,6 @@ async function loadDashboard() {
     document.getElementById('stat-gross').textContent = fmtShort(basePay);
     document.getElementById('stat-net').textContent = fmtShort(net);
     document.getElementById('stat-taxes').textContent = fmtShort(taxes);
-    document.getElementById('stat-retirement').textContent = fmtShort(retirement);
     document.getElementById('stat-er').textContent = fmtShort(retirementContrib);
     document.getElementById('stat-count').textContent = items.length;
     document.getElementById('stat-avg').textContent = fmtShort(net / items.length);
@@ -1779,20 +1981,6 @@ async function loadDashboard() {
       },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: 'right', labels: { color: '#8b92b8', padding: 16 } } } }
-    });
-
-    // Tax breakdown bar
-    const taxLabels = ['Federal', 'Medicare', 'Social Sec.', 'State Tax', 'FAMLI/PFML'];
-    const taxData = ['federal_taxes','medicare','social_security','state_tax','state_misc2'].map(f => parseFloat(sum(f).toFixed(2)));
-    if (chartTaxes) chartTaxes.destroy();
-    chartTaxes = new Chart(document.getElementById('chart-taxes'), {
-      type: 'bar',
-      data: {
-        labels: taxLabels,
-        datasets: [{ label: 'Total YTD', data: taxData, backgroundColor: ['#e05c5c','#f0b429','#4f8ef7','#7c5cbf','#34c77b'], borderRadius: 6 }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { x: { ticks: { color: '#8b92b8' }, grid: { display: false } }, y: { ticks: { color: '#8b92b8', callback: v => '$'+v.toLocaleString() }, grid: { color: '#2e3350' } } } }
     });
 
     // Monthly tax components chart
@@ -2519,6 +2707,13 @@ if (txSelectAll) {
     toggleSelectAllVisible(!!e.target.checked);
   });
 }
+['tc-standard-deduction','tc-hsa','tc-investments','tc-investments-withheld','tc-credits','tc-fed-before-input'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', recalcTaxCalculator);
+  // Prevent accidental scroll-wheel changes on number inputs.
+  el.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
+});
 
 // ─── Tax Summary ──────────────────────────────────────────────────────────────
 async function loadTaxSummary() {
@@ -2606,6 +2801,120 @@ async function loadTaxSummary() {
     `;
   } catch(e) {
     document.getElementById('tax-summary-content').innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>No data for ${selectedTaxYear}</div></div>`;
+  }
+}
+
+function recalcTaxCalculator() {
+  if (!taxCalcSummary) return;
+  const v = (id) => parseFloat(document.getElementById(id)?.value || 0) || 0;
+  const round0 = (n) => Math.round(toNum(n));
+  const totalGross = toNum(taxCalcSummary.total_gross);
+  const preTax = toNum(taxCalcSummary.total_pre_tax_deductions);
+  const fedWithheld = toNum(taxCalcSummary.total_federal_taxes);
+  const stateWithheld = toNum(taxCalcSummary.total_state_tax);
+  const socialWithheld = toNum(taxCalcSummary.total_social_security);
+  const medicareWithheld = toNum(taxCalcSummary.total_medicare);
+
+  const box1 = round0(Math.max(0, totalGross - preTax));
+  const standardDeduction = round0(Math.max(0, v('tc-standard-deduction')));
+  const hsa = round0(Math.max(0, v('tc-hsa')));
+  const investments = round0(v('tc-investments'));
+  const investmentsWithheld = round0(Math.max(0, v('tc-investments-withheld')));
+  const credits = round0(Math.max(0, v('tc-credits')));
+  const fedBeforeInput = round0(Math.max(0, v('tc-fed-before-input')));
+  const fedWithheldRounded = round0(fedWithheld);
+  const totalFedWithheld = round0(fedWithheldRounded + investmentsWithheld);
+
+  const agi = round0(Math.max(0, box1 + investments - hsa));
+  const taxable = round0(Math.max(0, agi - standardDeduction));
+  const estFedBefore = fedBeforeInput;
+  const estFedAfter = round0(Math.max(0, estFedBefore - credits));
+  const refundOwed = round0(totalFedWithheld - estFedAfter);
+
+  document.getElementById('tc-box1').textContent = fmtShort(box1);
+  document.getElementById('tc-agi').textContent = fmtShort(agi);
+  document.getElementById('tc-taxable').textContent = fmtShort(taxable);
+  document.getElementById('tc-fed-after').textContent = fmtShort(estFedAfter);
+  document.getElementById('tc-fed-withheld').textContent = fmtShort(totalFedWithheld);
+  const refundEl = document.getElementById('tc-refund-owed');
+  refundEl.textContent = `${refundOwed >= 0 ? 'Refund ' : 'Owed '}${fmtShort(Math.abs(refundOwed))}`;
+  refundEl.style.color = refundOwed >= 0 ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('tc-ref-gross').textContent = fmtShort(round0(totalGross));
+  document.getElementById('tc-ref-pre').textContent = fmtShort(round0(preTax));
+  document.getElementById('tc-ref-fed').textContent = fmtShort(round0(fedWithheld));
+  document.getElementById('tc-ref-state').textContent = fmtShort(round0(stateWithheld));
+  document.getElementById('tc-ref-social').textContent = fmtShort(round0(socialWithheld));
+  document.getElementById('tc-ref-medicare').textContent = fmtShort(round0(medicareWithheld));
+
+  persistTaxCalcFilters();
+  scheduleSaveTaxCalcInputs();
+}
+
+function applyTaxCalcDbInputs(summary, dbInputs) {
+  const defaultFedBefore = toNum(summary.total_federal_taxes);
+
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = val ?? '';
+  };
+  setVal('tc-standard-deduction', dbInputs?.standard_deduction ?? '');
+  setVal('tc-hsa', dbInputs?.hsa_contributions ?? '');
+  setVal('tc-investments', dbInputs?.investment_earnings ?? '');
+  setVal('tc-investments-withheld', dbInputs?.investment_withheld ?? '');
+  setVal('tc-credits', dbInputs?.additional_credits ?? '');
+  setVal('tc-fed-before-input', dbInputs?.federal_tax_before_credits ?? defaultFedBefore.toFixed(0));
+}
+
+function taxCalcPayloadFromInputs() {
+  const val = (id) => parseFloat(document.getElementById(id)?.value || 0) || 0;
+  return {
+    standard_deduction: Math.max(0, val('tc-standard-deduction')),
+    hsa_contributions: Math.max(0, val('tc-hsa')),
+    investment_earnings: val('tc-investments'),
+    investment_withheld: Math.max(0, val('tc-investments-withheld')),
+    additional_credits: Math.max(0, val('tc-credits')),
+    federal_tax_before_credits: Math.max(0, val('tc-fed-before-input')),
+  };
+}
+
+function scheduleSaveTaxCalcInputs() {
+  if (!selectedTaxCalcYear || taxCalcHydratingInputs) return;
+  if (taxCalcSaveTimer) clearTimeout(taxCalcSaveTimer);
+  taxCalcSaveTimer = setTimeout(saveTaxCalcInputsToDb, 450);
+}
+
+async function saveTaxCalcInputsToDb() {
+  if (!selectedTaxCalcYear || taxCalcHydratingInputs) return;
+  try {
+    await api(`/api/tax-calculator/${selectedTaxCalcYear}`, {
+      method: 'PUT',
+      body: JSON.stringify(taxCalcPayloadFromInputs()),
+    });
+  } catch (_) {}
+}
+
+async function loadTaxCalculator() {
+  if (!selectedTaxCalcYear) return;
+  try {
+    const [s, dbInputs] = await Promise.all([
+      api(`/api/pay-advices/summary/${selectedTaxCalcYear}`),
+      api(`/api/tax-calculator/${selectedTaxCalcYear}`),
+    ]);
+    taxCalcSummary = s;
+    taxCalcHydratingInputs = true;
+    applyTaxCalcDbInputs(s, dbInputs);
+    setTaxCalcInputsLocked(taxCalcInputsLocked);
+    taxCalcHydratingInputs = false;
+    recalcTaxCalculator();
+  } catch (e) {
+    taxCalcHydratingInputs = false;
+    taxCalcSummary = null;
+    ['tc-box1','tc-agi','tc-taxable','tc-fed-after','tc-fed-withheld','tc-refund-owed',
+     'tc-ref-gross','tc-ref-pre','tc-ref-fed','tc-ref-state','tc-ref-social','tc-ref-medicare']
+      .forEach((id) => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+    showNotif(`No pay stub data for ${selectedTaxCalcYear}`, 'error');
   }
 }
 

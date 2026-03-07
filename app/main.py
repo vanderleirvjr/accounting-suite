@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import os
 
 from .database import engine, Base
-from .routers import auth, pay_advices, budget, persons, transactions
+from .routers import auth, pay_advices, budget, persons, transactions, tax_calculator
 
 # Create all tables on startup
 Base.metadata.create_all(bind=engine)
@@ -51,6 +51,7 @@ app.include_router(persons.router, dependencies=[Depends(require_api_auth)])
 app.include_router(pay_advices.router, dependencies=[Depends(require_api_auth)])
 app.include_router(budget.router, dependencies=[Depends(require_api_auth)])
 app.include_router(transactions.router, dependencies=[Depends(require_api_auth)])
+app.include_router(tax_calculator.router, dependencies=[Depends(require_api_auth)])
 
 
 @app.get("/")
@@ -59,6 +60,7 @@ app.include_router(transactions.router, dependencies=[Depends(require_api_auth)]
 @app.get("/pay-advices")
 @app.get("/add-pay")
 @app.get("/tax-summary")
+@app.get("/tax-calculator")
 @app.get("/transactions")
 @app.get("/expenses")
 @app.get("/w2")

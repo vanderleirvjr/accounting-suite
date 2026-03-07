@@ -89,6 +89,21 @@ class BudgetGoal(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class TaxCalculatorInput(Base):
+    __tablename__ = "tax_calculator_inputs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False, unique=True, index=True)
+    standard_deduction = Column(Numeric(12, 2), nullable=False, default=0)
+    hsa_contributions = Column(Numeric(12, 2), nullable=False, default=0)
+    investment_earnings = Column(Numeric(12, 2), nullable=False, default=0)
+    investment_withheld = Column(Numeric(12, 2), nullable=False, default=0)
+    additional_credits = Column(Numeric(12, 2), nullable=False, default=0)
+    federal_tax_before_credits = Column(Numeric(12, 2), nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 class BankTransaction(Base):
     __tablename__ = "bank_transactions"
 
