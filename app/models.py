@@ -13,6 +13,7 @@ class Person(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     pay_advices = relationship("PayAdvice", back_populates="person")
+    transactions = relationship("BankTransaction", back_populates="person")
 
 
 class User(Base):
@@ -86,3 +87,21 @@ class BudgetGoal(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class BankTransaction(Base):
+    __tablename__ = "bank_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    person_id = Column(Integer, ForeignKey("persons.id"), nullable=True, index=True)
+    tx_date = Column(Date, nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False, default=0)
+    balance = Column(Numeric(12, 2), nullable=True)
+    account_type = Column(String(50), nullable=False, default="checking")
+    bank = Column(String(100), nullable=False, default="")
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    person = relationship("Person", back_populates="transactions")

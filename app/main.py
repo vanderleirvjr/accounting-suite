@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import os
 
 from .database import engine, Base
-from .routers import auth, pay_advices, budget, persons
+from .routers import auth, pay_advices, budget, persons, transactions
 
 # Create all tables on startup
 Base.metadata.create_all(bind=engine)
@@ -50,6 +50,7 @@ app.include_router(auth.router)
 app.include_router(persons.router, dependencies=[Depends(require_api_auth)])
 app.include_router(pay_advices.router, dependencies=[Depends(require_api_auth)])
 app.include_router(budget.router, dependencies=[Depends(require_api_auth)])
+app.include_router(transactions.router, dependencies=[Depends(require_api_auth)])
 
 
 @app.get("/")
@@ -58,6 +59,8 @@ app.include_router(budget.router, dependencies=[Depends(require_api_auth)])
 @app.get("/pay-advices")
 @app.get("/add-pay")
 @app.get("/tax-summary")
+@app.get("/transactions")
+@app.get("/w2")
 @app.get("/budget")
 @app.get("/export")
 async def dashboard(request: Request):

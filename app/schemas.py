@@ -193,3 +193,38 @@ class YearSummary(BaseModel):
     total_er_other: Decimal
     total_employer_contributions: Decimal
     total_compensation: Decimal
+
+
+class BankTransactionBase(BaseModel):
+    person_id: Optional[int] = None
+    tx_date: date
+    description: str
+    amount: Decimal
+    balance: Optional[Decimal] = None
+    account_type: str = "checking"
+    bank: str = ""
+    notes: Optional[str] = None
+
+
+class BankTransactionCreate(BankTransactionBase):
+    pass
+
+
+class BankTransactionUpdate(BankTransactionBase):
+    pass
+
+
+class BankTransactionResponse(BankTransactionBase):
+    id: int
+    person_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_orm_with_person(cls, obj):
+        data = {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+        instance = cls(**data)
+        if hasattr(obj, "person") and obj.person is not None:
+            instance.person_name = obj.person.name
+        return instance
