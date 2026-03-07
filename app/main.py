@@ -60,6 +60,7 @@ app.include_router(transactions.router, dependencies=[Depends(require_api_auth)]
 @app.get("/add-pay")
 @app.get("/tax-summary")
 @app.get("/transactions")
+@app.get("/expenses")
 @app.get("/w2")
 @app.get("/budget")
 @app.get("/export")

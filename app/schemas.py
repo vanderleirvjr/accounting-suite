@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -203,6 +203,7 @@ class BankTransactionBase(BaseModel):
     balance: Optional[Decimal] = None
     account_type: str = "checking"
     bank: str = ""
+    labels: List[str] = Field(default_factory=list)
     notes: Optional[str] = None
 
 
@@ -224,7 +225,20 @@ class BankTransactionResponse(BankTransactionBase):
     @classmethod
     def from_orm_with_person(cls, obj):
         data = {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+        if isinstance(data.get("labels"), str):
+            try:
+                import json
+                parsed = json.loads(data.get("labels") or "[]")
+                data["labels"] = parsed if isinstance(parsed, list) else []
+            except Exception:
+                data["labels"] = []
         instance = cls(**data)
         if hasattr(obj, "person") and obj.person is not None:
             instance.person_name = obj.person.name
         return instance
+
+
+class BankTransactionBulkLabelRequest(BaseModel):
+    tx_ids: List[int]
+    labels: List[str]
+    mode: str = "add"

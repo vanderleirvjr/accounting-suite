@@ -152,6 +152,52 @@
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
     .badge-blue { background: rgba(79,142,247,0.2); color: var(--accent); }
     .badge-green { background: rgba(52,199,123,0.2); color: var(--green); }
+    .tx-label-cell { min-width: 300px; }
+    .tx-label-wrap { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .tx-label-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.74rem;
+      line-height: 1;
+      border-radius: 999px;
+      border: 1px solid var(--label-border, #3d444d);
+      color: var(--label-fg, #c9d1d9);
+      background: var(--label-bg, rgba(33,38,45,0.75));
+      padding: 5px 8px;
+      white-space: nowrap;
+    }
+    .tx-label-remove {
+      border: none;
+      background: transparent;
+      color: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      opacity: 0.85;
+    }
+    .tx-label-remove:hover { opacity: 1; }
+    .tx-label-add {
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--text2);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.74rem;
+      cursor: pointer;
+    }
+    .tx-label-add:hover { color: var(--text); border-color: var(--accent); }
+    .tx-label-input {
+      min-width: 130px;
+      max-width: 180px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text);
+      padding: 5px 10px;
+      font-size: 0.74rem;
+    }
 
     /* Modal */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
@@ -205,6 +251,7 @@
     <a class="nav-item" href="/people" data-page="people"><span class="nav-icon">👤</span><span class="nav-text">People</span></a>
     <a class="nav-item" href="/pay-advices" data-page="pay-advices"><span class="nav-icon">🧾</span><span class="nav-text">Pay Advices</span></a>
     <a class="nav-item" href="/transactions" data-page="transactions"><span class="nav-icon">🏦</span><span class="nav-text">Transactions</span></a>
+    <a class="nav-item" href="/expenses" data-page="expenses"><span class="nav-icon">💸</span><span class="nav-text">Expenses</span></a>
     <a class="nav-item" href="/add-pay" data-page="add-pay"><span class="nav-icon">➕</span><span class="nav-text">Add Pay Stub</span></a>
     <a class="nav-item" href="/tax-summary" data-page="tax-summary"><span class="nav-icon">🏛️</span><span class="nav-text">Tax Summary</span></a>
     <a class="nav-item" href="/w2" data-page="w2"><span class="nav-icon">🧾</span><span class="nav-text">W‑2</span></a>
@@ -479,6 +526,10 @@
           <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Account</div>
           <div class="year-filter" id="tx-account-filter" style="margin-bottom:0"></div>
         </div>
+        <div style="min-width:100%;">
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Labels</div>
+          <div class="year-filter" id="tx-label-filter" style="margin-bottom:0"></div>
+        </div>
       </div>
       <div style="height:16px"></div>
 
@@ -527,6 +578,10 @@
               <label>Description *</label>
               <input type="text" id="tx-description" required />
             </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Labels (comma separated)</label>
+              <input type="text" id="tx-labels" placeholder="e.g. Groceries, Walmart, Household" />
+            </div>
           </div>
           <div class="btn-group">
             <button type="submit" class="btn btn-success" id="tx-submit-btn">💾 Save Transaction</button>
@@ -536,26 +591,143 @@
       </div>
 
       <div class="card">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
-          <div class="card-title" style="margin:0;">🔎 Live Search</div>
+        <div class="card-title" style="margin:0 0 12px 0;">🔎 Live Search</div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
           <div style="min-width:280px; flex:1; max-width:560px;">
-            <input type="text" id="tx-live-search" placeholder="Type to filter transactions by description, date, amount, account..." style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:10px 12px; font-size:0.9rem;" />
+            <input type="text" id="tx-live-search" placeholder='Search... +"WORD" +term -exclude' style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:10px 12px; font-size:0.9rem;" />
           </div>
+          <input type="date" id="tx-date-from" title="From date" style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 10px; font-size:0.85rem;" />
+          <input type="date" id="tx-date-to" title="To date" style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 10px; font-size:0.85rem;" />
+          <input type="number" step="0.01" id="tx-amount-from" placeholder="Amount from" title="Minimum amount" style="width:130px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 10px; font-size:0.85rem;" />
+          <input type="number" step="0.01" id="tx-amount-to" placeholder="Amount to" title="Maximum amount" style="width:130px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 10px; font-size:0.85rem;" />
         </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+          <input
+            type="text"
+            id="tx-bulk-labels"
+            list="tx-label-suggestions"
+            placeholder="bulk labels (comma separated)"
+            style="min-width:240px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 10px; font-size:0.85rem;"
+            onchange="commitBulkLabelsFromInput()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();commitBulkLabelsFromInput();}"
+          />
+          <input
+            type="text"
+            id="tx-bulk-remove-labels"
+            list="tx-label-suggestions"
+            placeholder="remove labels (comma separated)"
+            style="min-width:240px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 10px; font-size:0.85rem;"
+            onchange="commitBulkRemoveLabelsFromInput()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();commitBulkRemoveLabelsFromInput();}"
+          />
+          <span id="tx-selected-count" style="font-size:0.82rem; color:var(--text2)">0 selected</span>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text2); margin-bottom:10px;">
+          <span style="margin-right:10px;">Tip: `+"WORD"` include exact case-sensitive, `+word` include, `-word` exclude.</span>
+          <span id="tx-visible-count">Showing 0 of 0</span>
+        </div>
+        <datalist id="tx-label-suggestions">
+          <option value="Groceries"></option>
+          <option value="Household"></option>
+          <option value="Utilities"></option>
+          <option value="Subscription"></option>
+          <option value="Dining"></option>
+          <option value="Travel"></option>
+          <option value="Lodging"></option>
+          <option value="Airbnb"></option>
+          <option value="Transportation"></option>
+          <option value="Auto"></option>
+          <option value="Car Expense"></option>
+          <option value="Fuel"></option>
+          <option value="Insurance"></option>
+          <option value="State Farm"></option>
+          <option value="Shopping"></option>
+          <option value="Walmart"></option>
+          <option value="Target"></option>
+          <option value="Costco"></option>
+          <option value="Starbucks"></option>
+          <option value="King Soopers"></option>
+          <option value="Xcel"></option>
+          <option value="Amazon"></option>
+          <option value="Home Depot"></option>
+          <option value="Lowes"></option>
+        </datalist>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th style="width:42px;">
+                  <input type="checkbox" id="tx-select-all" title="Select visible" />
+                </th>
                 <th>Person</th>
                 <th>Date</th>
                 <th>Description</th>
                 <th>Amount</th>
                 <th>Balance</th>
                 <th>Account</th>
+                <th>Labels</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="tx-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expenses Overview -->
+    <div class="page" id="page-expenses">
+      <div class="page-title">Expenses Overview</div>
+      <div class="page-sub">Monthly spending totals by person, year, and label</div>
+
+      <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:4px;">
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Person</div>
+          <div class="year-filter" id="exp-person-filter" style="margin-bottom:0"></div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Year</div>
+          <div class="year-filter" id="exp-year-filter" style="margin-bottom:0"></div>
+        </div>
+        <div style="min-width:100%;">
+          <div style="font-size:0.75rem; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">Label</div>
+          <div class="year-filter" id="exp-label-filter" style="margin-bottom:0"></div>
+        </div>
+      </div>
+      <div style="height:16px"></div>
+
+      <div class="stat-grid" style="margin-bottom:16px;">
+        <div class="stat-card">
+          <div class="stat-label">Total Expenses</div>
+          <div class="stat-value red" id="exp-total">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Monthly Average</div>
+          <div class="stat-value yellow" id="exp-monthly-avg">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Expense Transactions</div>
+          <div class="stat-value" id="exp-count">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📉 Monthly Expenses</div>
+        <div class="chart-container"><canvas id="chart-expenses-monthly"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📅 Monthly Totals</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Total Expenses</th>
+                <th>Transactions</th>
+              </tr>
+            </thead>
+            <tbody id="exp-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -707,7 +879,49 @@ let selectedListPerson = null;
 let selectedTxYear = null;
 let selectedTxPerson = null;
 let txLiveSearch = '';
+let txDateFrom = '';
+let txDateTo = '';
+let txAmountFrom = '';
+let txAmountTo = '';
 let txVisibleRows = [];
+let txRowsById = new Map();
+let txSelectedIds = new Set();
+let txAvailableLabels = [];
+let selectedTxLabels = [];
+let selectedTxNoLabels = false;
+let selectedExpYear = null;
+let selectedExpPerson = null;
+let selectedExpLabel = null;
+let expAvailableLabels = [];
+const TX_LABEL_COLORS = {
+  'Groceries': ['#2ea043', '#0d4429'],
+  'Household': ['#1f6feb', '#0d2d63'],
+  'Utilities': ['#8957e5', '#2d1b5f'],
+  'Subscription': ['#d29922', '#563c13'],
+  'Dining': ['#db6d28', '#59260f'],
+  'Travel': ['#bf4b8a', '#4d1d37'],
+  'Lodging': ['#a371f7', '#3a226c'],
+  'Airbnb': ['#f85149', '#5a1b1a'],
+  'Transportation': ['#58a6ff', '#0f3f77'],
+  'Auto': ['#58a6ff', '#0f3f77'],
+  'Car Expense': ['#db6d28', '#59260f'],
+  'Insurance': ['#6e7681', '#30363d'],
+  'State Farm': ['#f85149', '#5a1b1a'],
+  'Shopping': ['#f78166', '#5f1f12'],
+  'Healthcare': ['#3fb950', '#0e4429'],
+  'Income': ['#238636', '#0f5323'],
+  'Reward': ['#a371f7', '#3a226c'],
+  'Uncategorized': ['#8b949e', '#30363d'],
+  'Walmart': ['#2f81f7', '#132f55'],
+  'Target': ['#f85149', '#5a1b1a'],
+  'Costco': ['#388bfd', '#0f3f77'],
+  'Starbucks': ['#2ea043', '#0f3f24'],
+  'King Soopers': ['#8957e5', '#2d1b5f'],
+  'Xcel': ['#1f6feb', '#0d2d63'],
+  'Amazon': ['#d29922', '#4f3606'],
+  'Home Depot': ['#db6d28', '#59260f'],
+  'Lowes': ['#58a6ff', '#0f3f77'],
+};
 const TX_ACCOUNT_OPTIONS = [
   { key: 'all', label: 'All Accounts', bank: null, account_type: null },
   { key: 'capital-one-credit', label: 'Capital One Credit', bank: 'Capital One', account_type: 'credit' },
@@ -728,10 +942,12 @@ let chartPayTrend = null;
 let chartBreakdown = null;
 let chartTaxes = null;
 let chartMonthlyTaxes = null;
+let chartExpensesMonthly = null;
 const LIST_FILTERS_KEY = 'paytracker:listFilters:v1';
 const TX_FILTERS_KEY = 'paytracker:txFilters:v1';
 const TAX_FILTERS_KEY = 'paytracker:taxFilters:v1';
 const W2_FILTERS_KEY = 'paytracker:w2Filters:v1';
+const EXP_FILTERS_KEY = 'paytracker:expFilters:v1';
 const SIDEBAR_COLLAPSED_KEY = 'paytracker:sidebarCollapsed:v1';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -739,6 +955,7 @@ const fmt = (n) => '$' + parseFloat(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!
 const fmtShort = (n) => '$' + Math.round(parseFloat(n || 0)).toLocaleString();
 const toNum = (v) => parseFloat(v || 0) || 0;
 const tipAttr = (s) => String(s || '').replace(/"/g, '&quot;').replace(/\n/g, '&#10;');
+const escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const month3 = (isoDate) => {
   const m = parseInt(String(isoDate || '').slice(5, 7), 10);
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1] || '—';
@@ -747,6 +964,49 @@ const grossBenefitAddOns = (o) => toNum(o.tuition) + toNum(o.er_ltd) + toNum(o.e
 const baseFromGross = (o) => toNum(o.gross) - grossBenefitAddOns(o);
 const grossFromBase = (basePay, o) => toNum(basePay) + grossBenefitAddOns(o);
 let previewYtdTimer = null;
+
+function normalizeTxLabels(labels) {
+  if (!Array.isArray(labels)) return [];
+  const seen = new Set();
+  const out = [];
+  labels.forEach((raw) => {
+    const v = String(raw || '').trim();
+    if (!v) return;
+    const key = v.toLowerCase();
+    if (key === 'credit') return;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(v.slice(0, 40));
+  });
+  return out.slice(0, 20);
+}
+
+function parseTxLabels(value) {
+  if (Array.isArray(value)) return normalizeTxLabels(value);
+  if (!value) return [];
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return normalizeTxLabels(parsed);
+    } catch (_) {}
+    return normalizeTxLabels(trimmed.split(',').map((v) => v.trim()));
+  }
+  return [];
+}
+
+function txLabelColors(label) {
+  const direct = TX_LABEL_COLORS[label];
+  if (direct) return { fg: direct[0], bg: direct[1] };
+  const palette = [
+    ['#58a6ff', '#0f3f77'], ['#3fb950', '#0e4429'], ['#a371f7', '#3a226c'], ['#f78166', '#5f1f12'],
+    ['#d29922', '#4f3606'], ['#db6d28', '#59260f'], ['#8b949e', '#30363d'], ['#2ea043', '#0f3f24'],
+  ];
+  const hash = [...label].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const pick = palette[hash % palette.length];
+  return { fg: pick[0], bg: pick[1] };
+}
 
 function persistListFilters() {
   try {
@@ -773,6 +1033,8 @@ function persistTxFilters() {
       person: selectedTxPerson,
       year: selectedTxYear,
       account: selectedTxAccount,
+      labels: selectedTxLabels,
+      no_labels: selectedTxNoLabels,
     }));
   } catch (_) {}
 }
@@ -785,6 +1047,8 @@ function restoreTxFilters() {
     selectedTxPerson = parsed.person === null ? null : Number(parsed.person);
     selectedTxYear = parsed.year === null ? null : Number(parsed.year);
     selectedTxAccount = parsed.account || selectedTxAccount;
+    selectedTxLabels = Array.isArray(parsed.labels) ? parsed.labels.map((x) => String(x || '')).filter(Boolean) : [];
+    selectedTxNoLabels = !!parsed.no_labels;
   } catch (_) {}
 }
 
@@ -823,6 +1087,27 @@ function restoreW2Filters() {
     const parsed = JSON.parse(raw);
     selectedW2Person = parsed.person === null ? null : Number(parsed.person);
     selectedW2Year = parsed.year === null ? null : Number(parsed.year);
+  } catch (_) {}
+}
+
+function persistExpFilters() {
+  try {
+    localStorage.setItem(EXP_FILTERS_KEY, JSON.stringify({
+      person: selectedExpPerson,
+      year: selectedExpYear,
+      label: selectedExpLabel,
+    }));
+  } catch (_) {}
+}
+
+function restoreExpFilters() {
+  try {
+    const raw = localStorage.getItem(EXP_FILTERS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    selectedExpPerson = parsed.person === null ? null : Number(parsed.person);
+    selectedExpYear = parsed.year === null ? null : Number(parsed.year);
+    selectedExpLabel = parsed.label || null;
   } catch (_) {}
 }
 
@@ -893,6 +1178,7 @@ function showPage(name, opts = { updateUrl: true }) {
   if (name === 'dashboard')   loadDashboard();
   if (name === 'pay-advices') loadPayList();
   if (name === 'transactions') loadTransactions();
+  if (name === 'expenses') loadExpensesOverview();
   if (name === 'add-pay')     populatePersonDropdown();
   if (name === 'budget')      loadBudget();
   if (name === 'tax-summary') loadTaxSummary();
@@ -905,6 +1191,7 @@ const PATH_TO_PAGE = {
   '/people': 'people',
   '/pay-advices': 'pay-advices',
   '/transactions': 'transactions',
+  '/expenses': 'expenses',
   '/add-pay': 'add-pay',
   '/tax-summary': 'tax-summary',
   '/w2': 'w2',
@@ -916,6 +1203,7 @@ const PAGE_TO_PATH = {
   'people': '/people',
   'pay-advices': '/pay-advices',
   'transactions': '/transactions',
+  'expenses': '/expenses',
   'add-pay': '/add-pay',
   'tax-summary': '/tax-summary',
   'w2': '/w2',
@@ -943,6 +1231,7 @@ async function loadPersonsAndYears() {
     restoreTxFilters();
     restoreTaxFilters();
     restoreW2Filters();
+    restoreExpFilters();
     if (!allYears.length) allYears = [new Date().getFullYear()];
     if (!txYears.length) txYears = [2024, 2025];
     selectedDashYear = allYears[allYears.length - 1];
@@ -965,18 +1254,25 @@ async function loadPersonsAndYears() {
     selectedW2Year = validW2Year ? selectedW2Year : allYears[allYears.length - 1];
     const validW2Person = selectedW2Person === null || personIds.has(selectedW2Person);
     selectedW2Person = validW2Person ? selectedW2Person : null;
+    const validExpYear = selectedExpYear === null || txYears.includes(selectedExpYear);
+    selectedExpYear = validExpYear ? selectedExpYear : null;
+    const validExpPerson = selectedExpPerson === null || personIds.has(selectedExpPerson);
+    selectedExpPerson = validExpPerson ? selectedExpPerson : null;
 
     buildPersonFilter('dash-person-filter', 'dash');
     buildPersonFilter('list-person-filter', 'list');
     buildPersonFilter('tx-person-filter',   'tx');
     buildPersonFilter('tax-person-filter',  'tax');
     buildPersonFilter('w2-person-filter',   'w2');
+    buildPersonFilter('exp-person-filter',  'exp');
     buildYearFilter('dash-year-filter', 'dash');
     buildYearFilter('list-year-filter', 'list');
     buildYearFilter('tx-year-filter',   'tx');
     buildTxAccountFilter();
+    buildTxLabelFilter();
     buildYearFilter('tax-year-filter',  'tax');
     buildYearFilter('w2-year-filter',   'w2');
+    buildYearFilter('exp-year-filter',  'exp');
 
     // Export dropdowns
     const epSel = document.getElementById('export-person');
@@ -1000,7 +1296,8 @@ function buildPersonFilter(containerId, prefix) {
                      : prefix === 'list' ? selectedListPerson
                      : prefix === 'tx'   ? selectedTxPerson
                      : prefix === 'tax'  ? selectedTaxPerson
-                     : selectedW2Person;
+                     : prefix === 'w2'   ? selectedW2Person
+                     : selectedExpPerson;
   let html = `<button class="year-btn ${selectedPerson === null ? 'active' : ''}" onclick="setPerson('${prefix}', null)">All</button>`;
   allPersons.forEach(p => {
     html += `<button class="year-btn ${selectedPerson === p.id ? 'active' : ''}" onclick="setPerson('${prefix}', ${p.id})">${p.name}</button>`;
@@ -1014,6 +1311,7 @@ function setPerson(prefix, personId) {
   if (prefix === 'tx')   { selectedTxPerson = personId; persistTxFilters(); buildPersonFilter('tx-person-filter','tx'); loadTransactions(); }
   if (prefix === 'tax')  { selectedTaxPerson  = personId; persistTaxFilters(); buildPersonFilter('tax-person-filter','tax');  loadTaxSummary(); }
   if (prefix === 'w2')   { selectedW2Person   = personId; persistW2Filters(); buildPersonFilter('w2-person-filter','w2');   loadW2Summary(); }
+  if (prefix === 'exp')  { selectedExpPerson  = personId; persistExpFilters(); buildPersonFilter('exp-person-filter','exp'); loadExpensesOverview(); }
 }
 
 function buildYearFilter(containerId, prefix) {
@@ -1025,7 +1323,10 @@ function buildYearFilter(containerId, prefix) {
   if (prefix === 'tx') {
     html += `<button class="year-btn ${selectedTxYear === null ? 'active' : ''}" onclick="setYear('${prefix}', null)">All</button>`;
   }
-  const years = prefix === 'tx' ? txYears : allYears;
+  if (prefix === 'exp') {
+    html += `<button class="year-btn ${selectedExpYear === null ? 'active' : ''}" onclick="setYear('${prefix}', null)">All</button>`;
+  }
+  const years = (prefix === 'tx' || prefix === 'exp') ? txYears : allYears;
   years.forEach(y => {
     let active = false;
     if (prefix === 'dash') active = selectedDashYear === y;
@@ -1033,6 +1334,7 @@ function buildYearFilter(containerId, prefix) {
     else if (prefix === 'tx') active = selectedTxYear === y;
     else if (prefix === 'tax') active = selectedTaxYear === y;
     else if (prefix === 'w2') active = selectedW2Year === y;
+    else if (prefix === 'exp') active = selectedExpYear === y;
     html += `<button class="year-btn ${active ? 'active' : ''}" onclick="setYear('${prefix}', ${y})">${y}</button>`;
   });
   el.innerHTML = html;
@@ -1044,6 +1346,7 @@ function setYear(prefix, year) {
   if (prefix === 'tx') { selectedTxYear = year; persistTxFilters(); buildYearFilter('tx-year-filter', 'tx'); loadTransactions(); }
   if (prefix === 'tax') { selectedTaxYear = year; persistTaxFilters(); buildYearFilter('tax-year-filter', 'tax'); loadTaxSummary(); }
   if (prefix === 'w2') { selectedW2Year = year; persistW2Filters(); buildYearFilter('w2-year-filter', 'w2'); loadW2Summary(); }
+  if (prefix === 'exp') { selectedExpYear = year; persistExpFilters(); buildYearFilter('exp-year-filter', 'exp'); loadExpensesOverview(); }
 }
 
 function buildTxAccountFilter() {
@@ -1052,6 +1355,55 @@ function buildTxAccountFilter() {
   el.innerHTML = TX_ACCOUNT_OPTIONS.map((o) =>
     `<button class="year-btn ${selectedTxAccount === o.key ? 'active' : ''}" onclick="setTxAccount('${o.key}')">${o.label}</button>`
   ).join('');
+}
+
+function buildTxLabelFilter() {
+  const el = document.getElementById('tx-label-filter');
+  if (!el) return;
+  if (!txAvailableLabels.length) {
+    const clearBtnOnly = `<button class="year-btn ${(selectedTxNoLabels || selectedTxLabels.length) ? 'active' : ''}" onclick="clearTxLabels()">All Labels</button>`;
+    const noLabelsOnly = `<button class="year-btn ${selectedTxNoLabels ? 'active' : ''}" onclick="toggleTxNoLabels()" style="border-color:#8b949e66; color:${selectedTxNoLabels ? '#fff' : '#8b949e'}; background:${selectedTxNoLabels ? '#6e7681' : '#30363d'};">No Labels</button>`;
+    el.innerHTML = clearBtnOnly + noLabelsOnly + `<span style="font-size:0.82rem; color:var(--text2); margin-left:6px;">No labels in current selection.</span>`;
+    return;
+  }
+  const clearBtn = `<button class="year-btn ${(selectedTxLabels.length || selectedTxNoLabels) ? 'active' : ''}" onclick="clearTxLabels()">All Labels</button>`;
+  const noLabelsBtn = `<button class="year-btn ${selectedTxNoLabels ? 'active' : ''}" onclick="toggleTxNoLabels()" style="border-color:#8b949e66; color:${selectedTxNoLabels ? '#fff' : '#8b949e'}; background:${selectedTxNoLabels ? '#6e7681' : '#30363d'};">No Labels</button>`;
+  const chips = txAvailableLabels.map((label) => {
+    const c = txLabelColors(label);
+    const active = selectedTxLabels.includes(label);
+    return `<button
+      class="year-btn ${active ? 'active' : ''}"
+      onclick='toggleTxLabel(${JSON.stringify(label)})'
+      style="border-color:${c.fg}66; color:${active ? '#fff' : c.fg}; background:${active ? c.fg : c.bg};"
+    >${escHtml(label)}</button>`;
+  }).join('');
+  el.innerHTML = clearBtn + noLabelsBtn + chips;
+}
+
+function toggleTxLabel(label) {
+  if (selectedTxLabels.includes(label)) {
+    selectedTxLabels = selectedTxLabels.filter((l) => l !== label);
+  } else {
+    selectedTxLabels = [...selectedTxLabels, label];
+  }
+  persistTxFilters();
+  buildTxLabelFilter();
+  renderTxTable();
+}
+
+function clearTxLabels() {
+  selectedTxLabels = [];
+  selectedTxNoLabels = false;
+  persistTxFilters();
+  buildTxLabelFilter();
+  renderTxTable();
+}
+
+function toggleTxNoLabels() {
+  selectedTxNoLabels = !selectedTxNoLabels;
+  persistTxFilters();
+  buildTxLabelFilter();
+  renderTxTable();
 }
 
 function setTxAccount(key) {
@@ -1088,40 +1440,162 @@ function txAccountKeyFromRow(bank, accountType) {
 
 function txMatchesSearch(i, search) {
   if (!search) return true;
-  const hay = [
+  const hayRaw = [
     i.person_name || '',
     i.tx_date || '',
     i.description || '',
+    (i.labels || []).join(' '),
     String(i.amount ?? ''),
     String(i.balance ?? ''),
     txAccountLabel(i.bank, i.account_type),
-  ].join(' ').toLowerCase();
-  return hay.includes(search);
+  ].join(' ');
+
+  const q = String(search || '').trim();
+  const hasAdvanced = /(^|[\s])[\+\-]/.test(q) || q.includes('"');
+  if (!hasAdvanced) {
+    return hayRaw.toLowerCase().includes(q.toLowerCase());
+  }
+
+  const tokens = q.match(/(?:[+-])?"[^"]+"|(?:[+-])?\S+/g) || [];
+  if (!tokens.length) return true;
+  const escapeRx = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const matchToken = (token) => {
+    let op = '';
+    let body = token;
+    if (body.startsWith('+') || body.startsWith('-')) {
+      op = body[0];
+      body = body.slice(1);
+    }
+    const isQuoted = body.startsWith('"') && body.endsWith('"') && body.length >= 2;
+    const term = isQuoted ? body.slice(1, -1) : body;
+    if (!term) return { op, matched: true };
+    let matched = false;
+    if (isQuoted) {
+      // Quoted terms are exact and case-sensitive.
+      const rx = new RegExp(`\\b${escapeRx(term)}\\b`);
+      matched = rx.test(hayRaw) || hayRaw.includes(term);
+    } else {
+      matched = hayRaw.toLowerCase().includes(term.toLowerCase());
+    }
+    return { op, matched };
+  };
+
+  for (const token of tokens) {
+    const { op, matched } = matchToken(token);
+    if (op === '-') {
+      if (matched) return false;
+    } else {
+      if (!matched) return false;
+    }
+  }
+  return true;
+}
+
+function txMatchesDateRange(i) {
+  const d = String(i.tx_date || '');
+  if (!d) return false;
+  if (txDateFrom && d < txDateFrom) return false;
+  if (txDateTo && d > txDateTo) return false;
+  return true;
+}
+
+function txMatchesAmountRange(i) {
+  const amount = toNum(i.amount);
+  const min = txAmountFrom === '' ? null : parseFloat(txAmountFrom);
+  const max = txAmountTo === '' ? null : parseFloat(txAmountTo);
+  if (min !== null && !Number.isNaN(min) && amount < min) return false;
+  if (max !== null && !Number.isNaN(max) && amount > max) return false;
+  return true;
+}
+
+function txMatchesSelectedLabels(i) {
+  const rowLabels = parseTxLabels(i.labels).map((l) => l.toLowerCase());
+  const unlabeled = rowLabels.length === 0;
+  const matchLabels = !selectedTxLabels.length || selectedTxLabels.every((l) => rowLabels.includes(String(l).toLowerCase()));
+  if (!selectedTxLabels.length && !selectedTxNoLabels) return true;
+  if (selectedTxLabels.length && selectedTxNoLabels) return matchLabels || unlabeled;
+  if (selectedTxLabels.length) return matchLabels;
+  return selectedTxNoLabels ? unlabeled : true;
 }
 
 function renderTxTable() {
   const tbody = document.getElementById('tx-tbody');
-  const searched = txVisibleRows.filter((i) => txMatchesSearch(i, txLiveSearch));
+  const searched = txVisibleRows.filter((i) => txMatchesDateRange(i) && txMatchesAmountRange(i) && txMatchesSelectedLabels(i) && txMatchesSearch(i, txLiveSearch));
+  const countEl = document.getElementById('tx-visible-count');
+  if (countEl) countEl.textContent = `Showing ${searched.length} of ${txVisibleRows.length}`;
+  txRowsById = new Map(txVisibleRows.map((row) => [row.id, row]));
+  const visibleIds = new Set(searched.map((row) => row.id));
+  txSelectedIds = new Set([...txSelectedIds].filter((id) => visibleIds.has(id)));
+  updateTxSelectionUi(searched);
   if (!searched.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:20px"><div>No transactions match your search.</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state" style="padding:20px"><div>No transactions match your search.</div></div></td></tr>`;
     return;
   }
+  const renderLabels = (row) => {
+    const labels = parseTxLabels(row.labels);
+    const inputId = `tx-label-input-${row.id}`;
+    const chips = labels.map((label) => {
+      const c = txLabelColors(label);
+      return `<span class="tx-label-chip" style="--label-fg:${c.fg};--label-bg:${c.bg};--label-border:${c.fg}66;">
+        <span>${escHtml(label)}</span>
+        <button class="tx-label-remove" type="button" onclick='removeTxLabel(${row.id}, ${JSON.stringify(label)})' title="Remove label">×</button>
+      </span>`;
+    }).join('');
+    return `<div class="tx-label-wrap">
+      ${chips}
+      <input
+        class="tx-label-input"
+        id="${inputId}"
+        list="tx-label-suggestions"
+        placeholder="new label"
+        onchange="commitTxLabelFromInput(${row.id}, '${inputId}')"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();commitTxLabelFromInput(${row.id}, '${inputId}');}"
+      />
+    </div>`;
+  };
   tbody.innerHTML = searched.map(i => `
       <tr>
+        <td><input type="checkbox" ${txSelectedIds.has(i.id) ? 'checked' : ''} onchange="toggleTxSelection(${i.id}, this.checked)" /></td>
         <td>${i.person_name || '—'}</td>
         <td>${i.tx_date}</td>
         <td>${i.description || ''}</td>
         <td class="${toNum(i.amount) < 0 ? 'td-red' : 'td-green'}">${fmt(i.amount)}</td>
         <td>${i.balance == null ? '—' : fmt(i.balance)}</td>
         <td>${txAccountLabel(i.bank, i.account_type)}</td>
+        <td class="tx-label-cell">${renderLabels(i)}</td>
         <td>
           <div class="action-group">
-            <button class="btn btn-secondary btn-sm" onclick='editTx(${JSON.stringify(i).replace(/'/g, "\\'")})'>✏️ Edit</button>
+            <button class="btn btn-secondary btn-sm" onclick="editTxById(${i.id})">✏️ Edit</button>
             <button class="btn btn-danger btn-sm" onclick="deleteTx(${i.id})">🗑</button>
           </div>
         </td>
       </tr>
     `).join('');
+}
+
+function toggleTxSelection(id, checked) {
+  if (checked) txSelectedIds.add(id);
+  else txSelectedIds.delete(id);
+  const searched = txVisibleRows.filter((i) => txMatchesSearch(i, txLiveSearch));
+  updateTxSelectionUi(searched);
+}
+
+function toggleSelectAllVisible(checked) {
+  const searched = txVisibleRows.filter((i) => txMatchesSearch(i, txLiveSearch));
+  if (checked) searched.forEach((r) => txSelectedIds.add(r.id));
+  else searched.forEach((r) => txSelectedIds.delete(r.id));
+  renderTxTable();
+}
+
+function updateTxSelectionUi(visibleRows) {
+  const countEl = document.getElementById('tx-selected-count');
+  if (countEl) countEl.textContent = `${txSelectedIds.size} selected`;
+  const selectAll = document.getElementById('tx-select-all');
+  if (!selectAll) return;
+  const totalVisible = visibleRows.length;
+  const selectedVisible = visibleRows.filter((r) => txSelectedIds.has(r.id)).length;
+  selectAll.checked = totalVisible > 0 && selectedVisible === totalVisible;
+  selectAll.indeterminate = selectedVisible > 0 && selectedVisible < totalVisible;
 }
 
 function populateTxAccountDropdown(selectedKey = null) {
@@ -1133,6 +1607,105 @@ function populateTxAccountDropdown(selectedKey = null) {
     .join('');
   const key = selectedKey || (selectedTxAccount === 'all' ? TX_ACCOUNT_OPTIONS[2].key : selectedTxAccount);
   sel.value = key;
+}
+
+function buildExpLabelFilter() {
+  const el = document.getElementById('exp-label-filter');
+  if (!el) return;
+  if (!expAvailableLabels.length) {
+    el.innerHTML = `<button class="year-btn ${selectedExpLabel === null ? 'active' : ''}" onclick="setExpLabel(null)">All</button>`;
+    return;
+  }
+  const allBtn = `<button class="year-btn ${selectedExpLabel === null ? 'active' : ''}" onclick="setExpLabel(null)">All</button>`;
+  const chips = expAvailableLabels.map((label) => {
+    const c = txLabelColors(label);
+    const active = selectedExpLabel === label;
+    return `<button
+      class="year-btn ${active ? 'active' : ''}"
+      onclick='setExpLabel(${JSON.stringify(label)})'
+      style="border-color:${c.fg}66; color:${active ? '#fff' : c.fg}; background:${active ? c.fg : c.bg};"
+    >${escHtml(label)}</button>`;
+  }).join('');
+  el.innerHTML = allBtn + chips;
+}
+
+function setExpLabel(label) {
+  selectedExpLabel = label;
+  persistExpFilters();
+  buildExpLabelFilter();
+  loadExpensesOverview();
+}
+
+async function loadExpensesOverview() {
+  try {
+    const qs = new URLSearchParams();
+    if (selectedExpYear) qs.set('year', selectedExpYear);
+    if (selectedExpPerson) qs.set('person_id', selectedExpPerson);
+    qs.set('limit', '5000');
+    const items = await api(`/api/transactions/?${qs.toString()}`);
+    items.forEach((i) => { i.labels = parseTxLabels(i.labels); });
+
+    const expenseRows = items.filter((i) => toNum(i.amount) < 0);
+    expAvailableLabels = [...new Set(expenseRows.flatMap((i) => i.labels || []))].sort((a, b) => a.localeCompare(b));
+    if (selectedExpLabel && !expAvailableLabels.includes(selectedExpLabel)) selectedExpLabel = null;
+    persistExpFilters();
+    buildExpLabelFilter();
+
+    const filtered = selectedExpLabel
+      ? expenseRows.filter((i) => (i.labels || []).includes(selectedExpLabel))
+      : expenseRows;
+    const monthly = new Map();
+    filtered.forEach((i) => {
+      const k = String(i.tx_date || '').slice(0, 7);
+      if (!k) return;
+      const row = monthly.get(k) || { total: 0, count: 0 };
+      row.total += Math.abs(toNum(i.amount));
+      row.count += 1;
+      monthly.set(k, row);
+    });
+    const keys = [...monthly.keys()].sort();
+    const totals = keys.map((k) => parseFloat(monthly.get(k).total.toFixed(2)));
+    const counts = keys.map((k) => monthly.get(k).count);
+    const totalExpenses = totals.reduce((a, b) => a + b, 0);
+    const monthlyAvg = keys.length ? totalExpenses / keys.length : 0;
+
+    document.getElementById('exp-total').textContent = keys.length ? fmt(totalExpenses) : '—';
+    document.getElementById('exp-monthly-avg').textContent = keys.length ? fmt(monthlyAvg) : '—';
+    document.getElementById('exp-count').textContent = filtered.length.toLocaleString();
+
+    const tbody = document.getElementById('exp-tbody');
+    if (!keys.length) {
+      tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state" style="padding:20px"><div>No expense data for selected filters.</div></div></td></tr>`;
+    } else {
+      tbody.innerHTML = keys.map((k, idx) => `
+        <tr>
+          <td>${k}</td>
+          <td class="td-red">${fmt(totals[idx])}</td>
+          <td>${counts[idx]}</td>
+        </tr>
+      `).join('');
+    }
+
+    if (chartExpensesMonthly) chartExpensesMonthly.destroy();
+    chartExpensesMonthly = new Chart(document.getElementById('chart-expenses-monthly'), {
+      type: 'bar',
+      data: {
+        labels: keys,
+        datasets: [{ label: 'Expenses', data: totals, backgroundColor: '#e05c5c', borderRadius: 4 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#8b92b8' } } },
+        scales: {
+          y: { ticks: { color: '#8b92b8', callback: (v) => '$' + v.toLocaleString() }, grid: { color: '#2e3350' } },
+          x: { ticks: { color: '#8b92b8' }, grid: { color: '#2e3350' } }
+        }
+      }
+    });
+  } catch (e) {
+    showNotif(e.message, 'error');
+  }
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -1599,8 +2172,10 @@ async function loadPeople() {
   </div>`;
   buildPersonFilter('dash-person-filter','dash');
   buildPersonFilter('list-person-filter','list');
+  buildPersonFilter('tx-person-filter','tx');
   buildPersonFilter('tax-person-filter','tax');
   buildPersonFilter('w2-person-filter','w2');
+  buildPersonFilter('exp-person-filter','exp');
   populatePersonDropdown();
   populateTxPersonDropdown();
 }
@@ -1665,6 +2240,7 @@ function resetTxForm() {
   document.getElementById('tx-date').value = '';
   document.getElementById('tx-description').value = '';
   document.getElementById('tx-amount').value = '';
+  document.getElementById('tx-labels').value = '';
   populateTxAccountDropdown();
   document.getElementById('tx-submit-btn').textContent = '💾 Save Transaction';
 }
@@ -1686,6 +2262,9 @@ async function loadTransactions() {
     if (selectedTxPerson) qs.set('person_id', selectedTxPerson);
     qs.set('limit', '5000');
     const items = await api(`/api/transactions/?${qs}`);
+    items.forEach((i) => {
+      i.labels = parseTxLabels(i.labels);
+    });
 
     const checkingItems = items.filter((i) => (i.account_type || '').trim().toLowerCase() === 'checking');
     const savingsItems = items.filter((i) => (i.account_type || '').trim().toLowerCase() === 'savings');
@@ -1698,6 +2277,10 @@ async function loadTransactions() {
             : (i.bank || '').trim().toLowerCase() === (account.bank || '').toLowerCase())) &&
           (i.account_type || '').trim().toLowerCase() === (account.account_type || '').toLowerCase()
         );
+    txAvailableLabels = [...new Set(filtered.flatMap((i) => parseTxLabels(i.labels)))].sort((a, b) => a.localeCompare(b));
+    selectedTxLabels = selectedTxLabels.filter((l) => txAvailableLabels.includes(l));
+    persistTxFilters();
+    buildTxLabelFilter();
 
     const latestCheckingByPerson = new Map();
     checkingItems.forEach((i) => {
@@ -1753,7 +2336,11 @@ async function loadTransactions() {
     const tbody = document.getElementById('tx-tbody');
     if (!filtered.length) {
       txVisibleRows = [];
-      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:20px"><div>No transactions for the selected filters.</div></div></td></tr>`;
+      txSelectedIds = new Set();
+      updateTxSelectionUi([]);
+      const countEl = document.getElementById('tx-visible-count');
+      if (countEl) countEl.textContent = 'Showing 0 of 0';
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state" style="padding:20px"><div>No transactions for the selected filters.</div></div></td></tr>`;
       return;
     }
     txVisibleRows = [...filtered].sort((a,b) => b.tx_date.localeCompare(a.tx_date));
@@ -1763,12 +2350,15 @@ async function loadTransactions() {
   }
 }
 
-function editTx(i) {
+function editTxById(id) {
+  const i = txRowsById.get(id);
+  if (!i) return;
   document.getElementById('tx-edit-id').value = i.id;
   document.getElementById('tx-person_id').value = i.person_id || '';
   document.getElementById('tx-date').value = i.tx_date || '';
   document.getElementById('tx-description').value = i.description || '';
   document.getElementById('tx-amount').value = toNum(i.amount).toFixed(2);
+  document.getElementById('tx-labels').value = (i.labels || []).join(', ');
   populateTxAccountDropdown(txAccountKeyFromRow(i.bank, i.account_type));
   document.getElementById('tx-submit-btn').textContent = '💾 Update Transaction';
 }
@@ -1792,6 +2382,7 @@ document.getElementById('tx-form').addEventListener('submit', async (e) => {
     amount: parseFloat(document.getElementById('tx-amount').value || '0'),
     account_type: selectedAccount.account_type,
     bank: selectedAccount.bank,
+    labels: parseTxLabels(document.getElementById('tx-labels').value),
     notes: null
   };
   try {
@@ -1809,11 +2400,123 @@ document.getElementById('tx-form').addEventListener('submit', async (e) => {
   }
 });
 
+function txPayloadFromRow(row, labelsOverride = null) {
+  return {
+    person_id: row.person_id || null,
+    tx_date: row.tx_date,
+    description: row.description || '',
+    amount: parseFloat(row.amount || 0),
+    balance: row.balance == null ? null : parseFloat(row.balance || 0),
+    account_type: row.account_type || 'checking',
+    bank: row.bank || '',
+    labels: normalizeTxLabels(labelsOverride === null ? (row.labels || []) : labelsOverride),
+    notes: row.notes || null,
+  };
+}
+
+async function saveTxLabels(id, labels) {
+  const row = txRowsById.get(id);
+  if (!row) return;
+  const payload = txPayloadFromRow(row, labels);
+  const updated = await api(`/api/transactions/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  updated.labels = parseTxLabels(updated.labels);
+  const idx = txVisibleRows.findIndex((r) => r.id === id);
+  if (idx >= 0) txVisibleRows[idx] = updated;
+  txRowsById.set(id, updated);
+  renderTxTable();
+}
+
+async function removeTxLabel(id, label) {
+  const row = txRowsById.get(id);
+  if (!row) return;
+  const labels = (row.labels || []).filter((l) => l.toLowerCase() !== String(label || '').toLowerCase());
+  await saveTxLabels(id, labels);
+}
+
+async function commitTxLabelFromInput(id, inputId) {
+  const row = txRowsById.get(id);
+  if (!row) return;
+  const inputEl = document.getElementById(inputId);
+  if (!inputEl) return;
+  const toAdd = parseTxLabels(inputEl.value);
+  if (!toAdd.length) return;
+  await saveTxLabels(id, [...(row.labels || []), ...toAdd]);
+  inputEl.value = '';
+}
+
+async function applyBulkLabels(mode, inputId) {
+  try {
+    const ids = [...txSelectedIds];
+    if (!ids.length) {
+      showNotif('Select at least one transaction.', 'error');
+      return;
+    }
+    const raw = document.getElementById(inputId)?.value || '';
+    const labels = parseTxLabels(raw);
+    if (!labels.length) {
+      showNotif('Type at least one valid label.', 'error');
+      return;
+    }
+    const result = await api('/api/transactions/labels/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ tx_ids: ids, labels, mode }),
+    });
+    showNotif(`${mode === 'add' ? 'Updated' : 'Removed labels on'} ${result.updated} transaction(s).`);
+    const input = document.getElementById(inputId);
+    if (input) input.value = '';
+    await loadTransactions();
+  } catch (e) {
+    showNotif(e.message, 'error');
+  }
+}
+
+function commitBulkLabelsFromInput() {
+  applyBulkLabels('add', 'tx-bulk-labels');
+}
+
+function commitBulkRemoveLabelsFromInput() {
+  applyBulkLabels('remove', 'tx-bulk-remove-labels');
+}
+
 const txLiveSearchInput = document.getElementById('tx-live-search');
 if (txLiveSearchInput) {
   txLiveSearchInput.addEventListener('input', () => {
     txLiveSearch = (txLiveSearchInput.value || '').trim().toLowerCase();
     renderTxTable();
+  });
+}
+const txDateFromInput = document.getElementById('tx-date-from');
+if (txDateFromInput) {
+  txDateFromInput.addEventListener('input', () => {
+    txDateFrom = txDateFromInput.value || '';
+    renderTxTable();
+  });
+}
+const txDateToInput = document.getElementById('tx-date-to');
+if (txDateToInput) {
+  txDateToInput.addEventListener('input', () => {
+    txDateTo = txDateToInput.value || '';
+    renderTxTable();
+  });
+}
+const txAmountFromInput = document.getElementById('tx-amount-from');
+if (txAmountFromInput) {
+  txAmountFromInput.addEventListener('input', () => {
+    txAmountFrom = txAmountFromInput.value || '';
+    renderTxTable();
+  });
+}
+const txAmountToInput = document.getElementById('tx-amount-to');
+if (txAmountToInput) {
+  txAmountToInput.addEventListener('input', () => {
+    txAmountTo = txAmountToInput.value || '';
+    renderTxTable();
+  });
+}
+const txSelectAll = document.getElementById('tx-select-all');
+if (txSelectAll) {
+  txSelectAll.addEventListener('change', (e) => {
+    toggleSelectAllVisible(!!e.target.checked);
   });
 }
 

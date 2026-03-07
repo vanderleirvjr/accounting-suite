@@ -100,6 +100,7 @@ class BankTransaction(Base):
     balance = Column(Numeric(12, 2), nullable=True)
     account_type = Column(String(50), nullable=False, default="checking")
     bank = Column(String(100), nullable=False, default="")
+    labels = Column(Text, nullable=False, default="[]")
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
